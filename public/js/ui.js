@@ -208,11 +208,11 @@ function updateTurtleGuessStats() {
   const fill = document.getElementById('turtle-confidence-fill');
   if (fill) fill.style.width = `${t.confidence}%`;
 
-  // Update sidebar panels
+  // Update confirmed facts panel
   const confirmedUl = $('#turtle-guess-confirmed');
   const confirmedEmpty = $('#turtle-guess-confirmed-empty');
-  if (t.confirmed.length > 0) {
-    confirmedUl.innerHTML = t.confirmed.map(c => `<li>${c}</li>`).join('');
+  if (t.confirmedFacts.length > 0) {
+    confirmedUl.innerHTML = t.confirmedFacts.map(c => `<li>${c}</li>`).join('');
     if (confirmedEmpty) confirmedEmpty.style.display = 'none';
   } else {
     confirmedUl.innerHTML = '';

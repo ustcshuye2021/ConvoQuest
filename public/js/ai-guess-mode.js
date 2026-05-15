@@ -147,7 +147,7 @@ const AIGuessMode = {
     const g = GameState.guess;
     const categoryId = GameState.category;
     const prompt = PROMPTS.aiGuessTurn(
-      answer, g.confirmed, g.ruledOut,
+      answer, g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
       g.lastActionWasGuess, null, categoryId
@@ -170,7 +170,7 @@ const AIGuessMode = {
     const g = GameState.guess;
     const prompt = PROMPTS.aiGuessTurn(
       `[自由对话] 用户说了一段话：\n"${trimmed}"\n\n请理解其意图，将其视为对你上一个问题的回答（如果适用），更新推理状态和画像，然后继续提问。`,
-      g.confirmed, g.ruledOut,
+      g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
       g.lastActionWasGuess, null, categoryId
@@ -195,7 +195,7 @@ const AIGuessMode = {
 
     const prompt = PROMPTS.aiGuessTurn(
       `[玩家给了你一条提示]：${hint}\n请根据提示调整推理并继续提问。`,
-      g.confirmed, g.ruledOut,
+      g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
       g.lastActionWasGuess, hint, categoryId
@@ -259,13 +259,13 @@ const AIGuessMode = {
 新回答：${newAnswer}
 
 请根据修正后的回答重新推理：
-1. 更新 confirmed 和 ruled_out 列表
-2. 重新整理 portrait 画像（根据修正后的信息重新归类）
+1. 更新 confirmed_facts 最小并集（根据修正后的信息重新整理）
+2. 重新整理 portrait 画像
 3. 更新 candidates 候选方向
 4. 继续提问`;
 
     const prompt = PROMPTS.aiGuessTurn(
-      correctionPrompt, g.confirmed, g.ruledOut,
+      correctionPrompt, g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
       g.lastActionWasGuess, null, categoryId
@@ -349,8 +349,7 @@ const AIGuessMode = {
       try {
         const json = JSON.parse(firstLine);
         if (json.confidence !== undefined) GameState.guess.confidence = json.confidence;
-        if (json.confirmed) GameState.guess.confirmed = json.confirmed;
-        if (json.ruled_out) GameState.guess.ruledOut = json.ruled_out;
+        if (json.confirmed_facts) GameState.guess.confirmedFacts = json.confirmed_facts;
         if (json.candidates) GameState.guess.topCandidates = json.candidates;
         if (json.portrait && typeof json.portrait === 'object') GameState.guess.portrait = json.portrait;
       } catch {}
@@ -396,7 +395,7 @@ const AIGuessMode = {
 
     const prompt = PROMPTS.aiGuessTurn(
       '猜错了。你必须先提问，不能连续猜测。',
-      g.confirmed, g.ruledOut,
+      g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
       true, null, categoryId
@@ -422,8 +421,7 @@ const AIGuessMode = {
 
     const reviewPrompt = PROMPTS.aiGuessReview(
       won,
-      GameState.guess.confirmed,
-      GameState.guess.ruledOut,
+      GameState.guess.confirmedFacts,
       GameState.guess.questionsAsked,
       GameState.guess.guessesUsed,
       categoryId

@@ -207,10 +207,13 @@ const TurtleHostMode = {
         const answer = json.answer;
         if (answer && ['是', '否', '是也不是', '无关'].includes(answer)) {
           t.knownInfo.push({ question, answer });
-          this.updateKnownInfoPanel();
+        }
+        if (json.confirmed_facts) {
+          t.confirmedFacts = json.confirmed_facts;
         }
       } catch {}
     }
+    this.updateKnownInfoPanel();
   },
 
   updateKnownInfoPanel() {
@@ -218,12 +221,8 @@ const TurtleHostMode = {
     const ul = $('#turtle-host-known');
     const empty = $('#turtle-host-known-empty');
 
-    if (t.knownInfo.length > 0) {
-      ul.innerHTML = t.knownInfo.map(info => {
-        const icon = info.answer === '是' ? '✅' : info.answer === '否' ? '❌' : info.answer === '是也不是' ? '↔️' : '🤷';
-        const qShort = info.question.length > 30 ? info.question.slice(0, 30) + '...' : info.question;
-        return `<li><span class="known-cat">${icon} ${info.answer}</span>${qShort}</li>`;
-      }).join('');
+    if (t.confirmedFacts.length > 0) {
+      ul.innerHTML = t.confirmedFacts.map(fact => `<li>${fact}</li>`).join('');
       empty.style.display = 'none';
     } else {
       ul.innerHTML = '';
@@ -393,7 +392,7 @@ const TurtleGuessMode = {
 
     const prompt = TURTLE_PROMPTS.guessTurn(
       answer,
-      t.confirmed,
+      t.confirmedFacts,
       t.keyInsights,
       t.questionsAsked,
       t.guessesUsed,
@@ -485,8 +484,7 @@ const TurtleGuessMode = {
       try {
         const json = JSON.parse(firstLine);
         if (json.confidence !== undefined) GameState.turtle.confidence = json.confidence;
-        if (json.confirmed) GameState.turtle.confirmed = json.confirmed;
-        if (json.ruled_out) GameState.turtle.ruledOut = json.ruled_out;
+        if (json.confirmed_facts) GameState.turtle.confirmedFacts = json.confirmed_facts;
         if (json.key_insights) GameState.turtle.keyInsights = json.key_insights;
       } catch {}
     }
@@ -580,7 +578,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
 
     const reviewPrompt = TURTLE_PROMPTS.guessReview(
-      won, t.surface, t.confirmed,
+      won, t.surface, t.confirmedFacts,
       t.keyInsights, t.questionsAsked, t.guessesUsed
     );
 

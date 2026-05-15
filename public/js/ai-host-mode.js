@@ -326,7 +326,7 @@ const AIHostMode = {
         addAnswerBadge($('#host-chat-area'), answer, categoryId);
 
         if (response.portrait && Object.keys(response.portrait).length > 0) {
-          Object.assign(host.portrait, response.portrait);
+          host.portrait = { ...host.portrait, ...response.portrait };
           updateHostPortrait(categoryId);
         }
 

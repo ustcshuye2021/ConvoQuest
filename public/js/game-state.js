@@ -34,8 +34,7 @@ const GameState = {
   },
 
   guess: {
-    confirmed: [],
-    ruledOut: [],
+    confirmedFacts: [],
     topCandidates: [],
     portrait: {},
     confidence: 0,
@@ -44,10 +43,9 @@ const GameState = {
     guessesUsed: 0,
     gameOver: false,
     won: false,
-    // New tracking fields
-    playerHintUsed: false,       // has player given AI a hint?
-    lastActionWasGuess: false,   // prevent consecutive guesses
-    qaHistory: []                // [{question: "1. xxx?", answer: "是"}]
+    playerHintUsed: false,
+    lastActionWasGuess: false,
+    qaHistory: []
   },
 
   turtle: {
@@ -58,13 +56,10 @@ const GameState = {
     guessesUsed: 0,
     gameOver: false,
     won: false,
-    // AI guess mode
-    confirmed: [],
-    ruledOut: [],
+    confirmedFacts: [],
     keyInsights: [],
     confidence: 0,
-    // Player guess mode - known info tracking
-    knownInfo: [], // [{question: "...", answer: "是/否/无关"}]
+    knownInfo: [],
     lastQuestion: ''
   },
 
@@ -82,7 +77,7 @@ const GameState = {
       portrait: {}, qaHistory: [], revealedHints: []
     };
     this.guess = {
-      confirmed: [], ruledOut: [], topCandidates: [], portrait: {},
+      confirmedFacts: [], topCandidates: [], portrait: {},
       confidence: 0, questionsAsked: 0, questionsHistory: [],
       guessesUsed: 0, gameOver: false, won: false,
       playerHintUsed: false, lastActionWasGuess: false, qaHistory: []
@@ -91,7 +86,7 @@ const GameState = {
       puzzle: null, surface: '', hintsRevealed: 0,
       questionsAsked: 0, guessesUsed: 0,
       gameOver: false, won: false,
-      confirmed: [], ruledOut: [], keyInsights: [], confidence: 0,
+      confirmedFacts: [], keyInsights: [], confidence: 0,
       knownInfo: [], lastQuestion: ''
     };
     this.messages = [];

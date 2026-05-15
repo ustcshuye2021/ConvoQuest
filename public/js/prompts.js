@@ -141,7 +141,7 @@ ${figureInfo}
 提问时：
 {"type":"question","answer":"是/否/是也不是/${cat.unknownAnswer}/请重新提问","portrait":{}}
 
-注意：不要输出任何额外解释、提示或评论，只返回上述JSON。portrait无新增则为空{}。
+注意：不要输出任何额外解释、提示或评论，只返回上述JSON。portrait必须每次返回完整画像（包含之前所有已确认信息+本次新增），不是增量。
 
 猜测时：
 {"type":"guess","result":"CORRECT/CLOSE/WRONG"}
@@ -152,6 +152,8 @@ portrait规则（仅提问时填写，猜测时为{}）：
 - 回答"是"时：可以写入确认的正面信息
 - 回答"否"时：只能用否定句式记录排除信息，绝不能推断为其他具体结论
 - 绝对禁止：从否定回答推断肯定结论
+- 最小并集原则：每次返回完整画像（不是增量）。当新信息使旧信息冗余时，只保留最精确的
+  例：确认"唐代"后，移除"非宋代""非明代"
 - 每个类别一条最精确的信息，无新增则为空 {}`;
 };
 
@@ -203,10 +205,20 @@ PROMPTS.aiGuessSystem = (categoryId) => {
 
 ## 输出格式
 每次回复的第一行用JSON标记你的推理状态（这行不显示给用户）：
-{"confidence":0-100,"action":"ask或guess","confirmed":["已确认事实"],"ruled_out":["已排除事实"],"candidates":["候选"],"portrait":{"类别":"信息"}}
+{"confidence":0-100,"action":"ask或guess","confirmed_facts":["已知信息最小并集"],"candidates":["候选"],"portrait":{"类别":"信息"}}
 第二行开始是给用户看的提问或猜测。
 - 每个问题必须以序号开头，格式：「N. 问题内容」
 - 序号从1开始递增。正式猜测不编号。
+
+## 已知信息整理原则（最小并集，必须严格遵守）
+confirmed_facts 是你维护的已知信息最小并集：
+- 每次回复返回完整列表（不是增量），前端直接替换显示
+- 剔除冗余：被更具体信息涵盖的笼统信息应移除
+  例：确认"他杀"后，移除"非自杀""非意外"
+- 肯定优先：当否定信息被肯定信息取代时，只保留肯定信息
+  例：确认"唐代诗人"后，移除"非宋代""非明代"
+- 保持简洁：每条信息用一句话概括，不重复
+- 吸收所有来源：包括问答、玩家提示等一切可用内容
 
 candidates说明：根据当前已知信息列出2-3个最可能的候选。信息不足时用方向描述，信息充分时用具体名称。
 
@@ -218,7 +230,7 @@ portrait说明：对已知信息分类整理。类别使用以下固定名称：
 - 严禁推断未确认的信息`;
 };
 
-PROMPTS.aiGuessTurn = (answer, confirmed, ruledOut, questionsAsked, questionsHistory, guessesUsed, confidence, lastActionWasGuess, playerHint, categoryId) => {
+PROMPTS.aiGuessTurn = (answer, confirmedFacts, questionsAsked, questionsHistory, guessesUsed, confidence, lastActionWasGuess, playerHint, categoryId) => {
   const cat = _cat(categoryId);
   const mustGuess = questionsAsked >= 18;
   const noConsecutiveGuess = lastActionWasGuess;
@@ -237,8 +249,7 @@ PROMPTS.aiGuessTurn = (answer, confirmed, ruledOut, questionsAsked, questionsHis
   }
 
   return `[推理状态]
-已确认：${confirmed.join('；') || '暂无'}
-已排除：${ruledOut.join('；') || '暂无'}
+已知信息（最小并集）：${confirmedFacts.join('；') || '暂无'}
 已提问：${questionsAsked}/20
 下一个问题编号：${questionsAsked + 1}
 已猜测：${guessesUsed}/3
@@ -343,15 +354,14 @@ PROMPTS.aiHostReview = (won, figure, hintsRevealed, maxHints, guessesUsed, guess
 
 // === AI Guess Review Phase ===
 
-PROMPTS.aiGuessReview = (won, confirmed, ruledOut, questionsAsked, guessesUsed, categoryId) => {
+PROMPTS.aiGuessReview = (won, confirmedFacts, questionsAsked, guessesUsed, categoryId) => {
   const cat = _cat(categoryId);
   if (won) {
     return `游戏结束！你成功猜出了用户心中想的${cat.targetName}。
 
 现在进入复盘阶段。请回顾你的推理过程：
 - 你问了${questionsAsked}个问题，用了${guessesUsed}次正式猜测
-- 已确认的信息：${confirmed.join('；') || '暂无'}
-- 已排除的信息：${ruledOut.join('；') || '暂无'}
+- 已知信息：${confirmedFacts.join('；') || '暂无'}
 
 请向用户解释：
 1. 哪个回答是关键的转折点？
@@ -364,8 +374,7 @@ PROMPTS.aiGuessReview = (won, confirmed, ruledOut, questionsAsked, guessesUsed, 
 
 现在进入复盘阶段。请分析失败原因：
 - 你问了${questionsAsked}个问题，用了${guessesUsed}次正式猜测
-- 已确认的信息：${confirmed.join('；') || '暂无'}
-- 已排除的信息：${ruledOut.join('；') || '暂无'}
+- 已知信息：${confirmedFacts.join('；') || '暂无'}
 
 请反思：
 1. 哪些问题或回答误导了你？
