@@ -22,8 +22,14 @@ const AIGuessMode = {
   _showWaitingForAnswer() {
     $('#guess-response-area').classList.remove('hidden');
     $('#guess-confirm-area').classList.add('hidden');
-    $('#guess-hint-area').classList.add('hidden');
     $('#guess-reroll-area').classList.add('hidden');
+    // Show hint prompt if applicable (doesn't block answer buttons)
+    const g = GameState.guess;
+    if (g.questionsAsked >= 15 && !g.playerHintUsed) {
+      $('#guess-hint-area').classList.remove('hidden');
+    } else {
+      $('#guess-hint-area').classList.add('hidden');
+    }
     this._setThinking(false);
     $('#guess-chat-area').scrollTop = $('#guess-chat-area').scrollHeight;
   },
@@ -131,8 +137,6 @@ const AIGuessMode = {
 
     if (g.questionsAsked >= 15 && !g.playerHintUsed) {
       addMsg($('#guess-chat-area'), '💡 已到第15问，你可以给 AI 一条提示帮助它推理。', 'system');
-      this._showHintPrompt();
-      return;
     }
 
     await this._continueAfterAnswer(answer);

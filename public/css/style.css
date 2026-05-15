@@ -683,10 +683,13 @@ body {
   padding: 10px 14px;
   border-radius: 8px;
   max-width: 85%;
+  width: fit-content;
+  max-inline-size: 85%;
   animation: fadeIn 0.3s ease;
   font-size: 0.95rem;
   line-height: 1.5;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .msg-ai {
@@ -694,6 +697,7 @@ body {
   border: 1px solid var(--border);
   margin-right: auto;
   white-space: normal;
+  min-width: 60px;
 }
 
 /* Markdown rendering inside AI messages */
@@ -721,6 +725,7 @@ body {
   color: white;
   margin-left: auto;
   text-align: right;
+  min-width: 40px;
 }
 
 .msg-system {
@@ -729,6 +734,8 @@ body {
   font-size: 0.85rem;
   padding: 8px;
   margin-bottom: 8px;
+  width: auto;
+  max-width: none;
 }
 
 .msg-close {
