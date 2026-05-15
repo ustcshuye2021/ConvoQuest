@@ -99,6 +99,7 @@ TURTLE_PROMPTS.guessSystem = (maxQuestions, maxGuesses) => `你是一个海龟�
 
 ## 核心规则
 - 你只能问是/否类的问题
+- **每次回复只能问一个问题**，绝对不能一次问多个问题
 - 每个问题必须在"是"和"否"两种回答下都有信息增益
 - 最多问${maxQuestions}个问题
 - 最多正式猜测${maxGuesses}次
@@ -147,7 +148,7 @@ TURTLE_PROMPTS.guessSystem = (maxQuestions, maxGuesses) => `你是一个海龟�
 ## 输出格式
 每次回复的第一行用JSON标记推理状态（不显示给用户）：
 {"confidence":0-100,"confirmed_facts":["已知信息最小并集"],"key_insights":["关键推理"]}
-第二行开始是给用户看的提问或猜测，问题以序号开头如「1. xxx？」。
+第二行开始是给用户看的提问或猜测。注意：每次只能问一个问题，不要列出多个问题。
 
 ## 已知信息整理原则（最小并集，必须严格遵守）
 confirmed_facts 是你维护的已知信息最小并集：
@@ -174,7 +175,7 @@ TURTLE_PROMPTS.guessTurn = (answer, confirmed, keyInsights, questionsAsked, gues
 [用户回答]
 ${answer}
 
-请继续提问或发起猜测。问题以「${questionsAsked + 1}. 」开头。`;
+请继续提问或发起猜测。注意：每次只能问一个问题。以「${questionsAsked + 1}. 」开头，然后是一个完整的问题。`;
 };
 
 TURTLE_PROMPTS.guessAnalyzeSurface = (surface) => {
@@ -198,7 +199,7 @@ TURTLE_PROMPTS.guessFirstTurn = (surface) => {
 
 "${surface}"
 
-请开始你的第一个问题（编号1）。从确认基本事实开始：涉及的人物数量、是否涉及生死等。`;
+请开始你的第一个问题。注意：每次只能问一个问题。以「1. 」开头，从确认基本事实开始：涉及的人物数量、是否涉及生死等。`;
 };
 
 // === AI Host Review Phase ===
