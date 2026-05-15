@@ -52,6 +52,7 @@ const AIHostMode = {
     $('#host-input').value = '';
     updateHostStats();
     updateHostPortrait(categoryId);
+    $('#host-portrait-heading').textContent = `📋 ${cat.targetName}画像`;
     showScreen('screen-game-host');
 
     // Update chat header rule
@@ -120,7 +121,7 @@ const AIHostMode = {
     try {
       const hintPrompt = PROMPTS.generateHint(
         host.secretFigure, host.portrait, host.qaHistory,
-        host.hintsRevealed, maxHints, categoryId
+        host.hintsRevealed, maxHints, categoryId, host.revealedHints
       );
       const raw = await chatFull(
         [{ role: 'user', content: hintPrompt }],
@@ -137,6 +138,8 @@ const AIHostMode = {
         addMsg($('#host-chat-area'), '生成线索失败，请重试。', 'system');
         return false;
       }
+
+      host.revealedHints.push(`${hint.category}：${hint.content}`);
 
       const oldScore = host.score;
       host.hintsRevealed++;

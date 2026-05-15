@@ -32,7 +32,7 @@ PROMPTS.figureSelection = (difficulty, categoryId) => {
   return _cat(categoryId).selectionPrompt(difficulty);
 };
 
-PROMPTS.generateHint = (figure, portrait, qaHistory, hintsRevealed, maxHints, categoryId) => {
+PROMPTS.generateHint = (figure, portrait, qaHistory, hintsRevealed, maxHints, categoryId, revealedHints) => {
   const cat = _cat(categoryId);
   const portraitEntries = Object.entries(portrait);
   const portraitStr = portraitEntries.length > 0
@@ -40,6 +40,9 @@ PROMPTS.generateHint = (figure, portrait, qaHistory, hintsRevealed, maxHints, ca
     : '暂无';
   const qaStr = qaHistory.length > 0
     ? qaHistory.map(qa => `问：${qa.question} → 答：${qa.answer}`).join('\n')
+    : '暂无';
+  const revealedStr = (revealedHints && revealedHints.length > 0)
+    ? revealedHints.map((h, i) => `第${i + 1}条：${h}`).join('\n')
     : '暂无';
   const isLast = hintsRevealed >= maxHints - 1;
 
@@ -57,6 +60,9 @@ ${figureInfo}
 ## 玩家已掌握的信息
 这是第${hintsRevealed + 1}条线索（共${maxHints}条）。线索绝对不能重复以下已知信息！
 
+已揭示线索（这些信息玩家已知道，新线索绝对不能重复或仅换种说法说同样的事）：
+${revealedStr}
+
 已知画像（通过提问确认）：
 ${portraitStr}
 
@@ -65,7 +71,7 @@ ${qaStr}
 
 ## 线索生成规则
 
-1. **绝对不重复已知信息**：如果玩家已知某个信息，线索不能再说类似的话——必须从完全不同的维度切入。
+1. **绝对不重复已知信息**：如果玩家已知某个信息（包括已揭示的线索和通过提问确认的信息），线索不能再说类似的话——必须从完全不同的维度切入。
 
 2. **信息量控制**：
    - 前几条线索：粗粒度，从单一维度切入，每个线索最多排除约30%的候选
@@ -79,7 +85,7 @@ ${qaStr}
    - 时代/时期名称：但必须说明该时期覆盖全球范围
    - 禁止：把时代和地域绑定的表述——时代线索就只说时代，地域信息留给地域维度
 
-4. **自检**：生成前确认——已知信息中是否已包含此线索的全部信息？如果是，换维度。
+4. **自检**：生成前确认——已知信息（包括已揭示线索）中是否已包含此线索的全部信息？如果是，换维度。
 
 请严格按JSON格式输出，不要输出其他内容：
 {"category":"维度名","content":"线索内容"}`;

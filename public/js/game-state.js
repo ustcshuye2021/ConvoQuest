@@ -28,7 +28,9 @@ const GameState = {
     blindGuessesLeft: 0,
     // Portrait
     portrait: {},
-    qaHistory: []
+    qaHistory: [],
+    // Revealed hints text (to prevent duplicates)
+    revealedHints: []
   },
 
   guess: {
@@ -77,7 +79,7 @@ const GameState = {
       gameOver: false, won: false,
       score: 100, baseScore: 100,
       blindGuessesTotal: 0, blindGuessesLeft: 0,
-      portrait: {}, qaHistory: []
+      portrait: {}, qaHistory: [], revealedHints: []
     };
     this.guess = {
       confirmed: [], ruledOut: [], topCandidates: [], portrait: {},

@@ -96,6 +96,7 @@ const AIGuessMode = {
     $('#guess-reroll-area').classList.add('hidden');
     $('#guess-answer-area').classList.remove('hidden');
     $('#guess-input-area').classList.add('hidden');
+    $('#guess-portrait-label').textContent = `📋 ${cat.targetName}画像`;
     this._thinking = false;
 
     showScreen('screen-game-guess');
