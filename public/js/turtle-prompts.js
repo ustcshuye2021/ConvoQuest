@@ -95,13 +95,13 @@ confirmed_facts：每次返回完整的已知信息最小并集，剔除已被�
 
 // === Player Hosts (我出题 AI来猜) ===
 
-TURTLE_PROMPTS.guessSystem = `你是一个海龟汤游戏的猜测者。玩家给出了一道海龟汤的汤面（一段看似不合理的简短场景），你需要通过问是/否问题来推理出完整的汤底（真相）。
+TURTLE_PROMPTS.guessSystem = (maxQuestions, maxGuesses) => `你是一个海龟汤游戏的猜测者。玩家给出了一道海龟汤的汤面（一段看似不合理的简短场景），你需要通过问是/否问题来推理出完整的汤底（真相）。
 
 ## 核心规则
 - 你只能问是/否类的问题
 - 每个问题必须在"是"和"否"两种回答下都有信息增益
-- 最多问20个问题
-- 最多正式猜测3次
+- 最多问${maxQuestions}个问题
+- 最多正式猜测${maxGuesses}次
 - 使用中文交流
 
 ## 玩家可能的回答
@@ -135,13 +135,13 @@ TURTLE_PROMPTS.guessSystem = `你是一个海龟汤游戏的猜测者。玩家�
 - 排除剩余的可能性
 - 验证推理是否一致
 
-### 第19-20问：收束猜测
+### 最后阶段：收束猜测
 - 如果信心>80%，发起正式猜测
 - 否则问最有区分度的问题
 
 ## 正式猜测格式
 当信心足够高时，使用以下格式：
-🎯 正式猜测 #N/3: {完整描述你认为的汤底真相}
+🎯 正式猜测 #N/${maxGuesses}: {完整描述你认为的汤底真相}
 你觉得我猜对了吗？
 
 ## 输出格式
@@ -160,13 +160,15 @@ confirmed_facts 是你维护的已知信息最小并集：
 
 key_insights说明：记录你目前最重要的推理线索和假设。`;
 
-TURTLE_PROMPTS.guessTurn = (answer, confirmed, keyInsights, questionsAsked, guessesUsed, confidence) => {
+TURTLE_PROMPTS.guessTurn = (answer, confirmed, keyInsights, questionsAsked, guessesUsed, confidence, maxQuestions, maxGuesses) => {
+  maxQuestions = maxQuestions || 20;
+  maxGuesses = maxGuesses || 3;
   return `[推理状态]
 已知信息（最小并集）：${confirmed.join('；') || '暂无'}
 关键推理：${keyInsights.join('；') || '暂无'}
-已提问：${questionsAsked}/20
+已提问：${questionsAsked}/${maxQuestions}
 下一个问题编号：${questionsAsked + 1}
-已猜测：${guessesUsed}/3
+已猜测：${guessesUsed}/${maxGuesses}
 信心：${confidence}%
 
 [用户回答]
@@ -273,6 +275,20 @@ TURTLE_PROMPTS.guessReview = (won, surface, confirmed, keyInsights, questionsAsk
 
 诚恳地和玩家讨论，请玩家分享真正的真相以及哪些回答可能造成了误导。保持轻松有趣的对话风格。`;
   }
+};
+
+// === Force Final Guess ===
+
+TURTLE_PROMPTS.guessForceGuess = (confirmed, keyInsights, questionsAsked, guessesUsed, maxGuesses) => {
+  return `[推理状态]
+已知信息（最小并集）：${confirmed.join('；') || '暂无'}
+关键推理：${keyInsights.join('；') || '暂无'}
+已提问：${questionsAsked}
+已猜测：${guessesUsed}/${maxGuesses}
+
+[系统提示] 你已经用完了所有提问次数！现在你必须立即做出最终猜测。
+使用格式：🎯 正式猜测 #${guessesUsed + 1}/${maxGuesses}: {你认为的完整汤底真相}
+你觉得我猜对了吗？`;
 };
 
 // === Guess Evaluation ===

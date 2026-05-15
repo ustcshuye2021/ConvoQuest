@@ -88,6 +88,9 @@
 [data-theme="dark"] .answer-badge.unknown { background: #1a2a3a; color: #42a5f5; border-color: #3a5a8a; }
 [data-theme="dark"] .answer-badge.rephrase { background: #2a1a3a; color: #ab47bc; border-color: #6a3a8a; }
 
+[data-theme="dark"] .badge-normal { background: #1a2a3a; color: #42a5f5; }
+[data-theme="dark"] .badge-hell { background: #3a1a1a; color: #ff5252; }
+
 [data-theme="dark"] .surface-box {
   background: linear-gradient(135deg, #0a0a1e, #0a1a2e);
   color: #c0c0c0;
@@ -575,7 +578,7 @@ body {
 
 .difficulty-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
 }
 
@@ -623,8 +626,10 @@ body {
   margin-left: 8px;
 }
 .badge-easy { background: #e8f5e9; color: #2e7d32; }
+.badge-normal { background: #e3f2fd; color: #1565c0; }
 .badge-medium { background: #fff3e0; color: #e65100; }
 .badge-hard { background: #fce4ec; color: #c62828; }
+.badge-hell { background: #263238; color: #ff5252; }
 
 .game-stats { display: flex; gap: 16px; font-size: 0.85rem; }
 .game-stats strong { color: var(--red); }
@@ -724,7 +729,6 @@ body {
   background: var(--red);
   color: white;
   margin-left: auto;
-  text-align: right;
   min-width: 40px;
 }
 

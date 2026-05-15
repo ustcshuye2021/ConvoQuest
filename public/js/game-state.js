@@ -51,6 +51,9 @@ const GameState = {
   turtle: {
     puzzle: null,
     surface: '',
+    difficulty: null,
+    maxQuestions: 20,
+    maxGuesses: 3,
     hintsRevealed: 0,
     questionsAsked: 0,
     guessesUsed: 0,
@@ -61,7 +64,8 @@ const GameState = {
     confidence: 0,
     knownInfo: [],
     lastQuestion: '',
-    qaHistory: []
+    qaHistory: [],
+    playerHints: []
   },
 
   messages: [],
@@ -84,11 +88,14 @@ const GameState = {
       playerHintUsed: false, lastActionWasGuess: false, qaHistory: []
     };
     this.turtle = {
-      puzzle: null, surface: '', hintsRevealed: 0,
+      puzzle: null, surface: '', difficulty: null,
+      maxQuestions: 20, maxGuesses: 3,
+      hintsRevealed: 0,
       questionsAsked: 0, guessesUsed: 0,
       gameOver: false, won: false,
       confirmedFacts: [], keyInsights: [], confidence: 0,
-      knownInfo: [], lastQuestion: '', qaHistory: []
+      knownInfo: [], lastQuestion: '', qaHistory: [],
+      playerHints: []
     };
     this.messages = [];
   },

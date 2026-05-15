@@ -199,7 +199,14 @@ const GAMES = {
     name: '海龟汤',
     modes: [
       { id: 'turtle-host', icon: '🍲', name: 'AI 出题', desc: 'AI 出一道海龟汤，你来提问推理真相', needDifficulty: true },
-      { id: 'turtle-guess', icon: '🤔', name: 'AI 来猜', desc: '你出汤面，AI 提问来推理汤底', needDifficulty: false }
+      { id: 'turtle-guess', icon: '🤔', name: 'AI 来猜', desc: '你出汤面，AI 提问来推理汤底', needDifficulty: true,
+        difficulties: [
+          { id: 'easy', stars: '⭐', name: '简单', desc: '20问/3次猜测' },
+          { id: 'normal', stars: '⭐⭐', name: '一般', desc: '40问/4次猜测' },
+          { id: 'hard', stars: '⭐⭐⭐', name: '困难', desc: '60问/5次猜测' },
+          { id: 'hell', stars: '⭐⭐⭐⭐', name: '地狱', desc: '80问/6次猜测' }
+        ]
+      }
     ],
     difficulties: [
       { id: 'easy', stars: '⭐', name: '简单', desc: '逻辑链短，1-2步推理' },
@@ -258,17 +265,7 @@ function showGameModes(gameId) {
   $('#hall-mode-cards').innerHTML = cardsHtml;
 
   // Build difficulty buttons (hidden by default)
-  let diffHtml = '';
-  if (game.difficulties) {
-    diffHtml = game.difficulties.map(d => `
-      <button class="btn-difficulty" data-diff-id="${d.id}" data-game="${gameId}">
-        <span class="stars">${d.stars}</span>
-        <span class="diff-name">${d.name}</span>
-        <span class="diff-desc">${d.desc}</span>
-      </button>
-    `).join('');
-  }
-  $('#hall-difficulty-buttons').innerHTML = diffHtml;
+  buildDifficultyButtons(game.difficulties, gameId);
   $('#hall-difficulty').classList.add('hidden');
 
   // Bind mode card clicks
@@ -277,6 +274,9 @@ function showGameModes(gameId) {
       const modeId = card.dataset.modeId;
       const modeDef = game.modes.find(m => m.id === modeId);
       if (modeDef.needDifficulty) {
+        const diffs = modeDef.difficulties || game.difficulties;
+        buildDifficultyButtons(diffs, gameId);
+
         // Show difficulty, dim unselected cards
         $('#hall-difficulty').classList.remove('hidden');
         $$('#hall-mode-cards .mode-card').forEach(c => {
@@ -287,14 +287,6 @@ function showGameModes(gameId) {
       } else {
         launchGame(gameId, modeId);
       }
-    });
-  });
-
-  // Bind difficulty clicks
-  $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const diff = btn.dataset.diffId;
-      launchGame(gameId, GameState._pendingMode, diff);
     });
   });
 }
@@ -361,10 +353,31 @@ function showTwentyQModes(categoryId) {
   });
 }
 
+function buildDifficultyButtons(difficulties, gameId) {
+  if (!difficulties) {
+    $('#hall-difficulty-buttons').innerHTML = '';
+    return;
+  }
+  const html = difficulties.map(d => `
+    <button class="btn-difficulty" data-diff-id="${d.id}" data-game="${gameId}">
+      <span class="stars">${d.stars}</span>
+      <span class="diff-name">${d.name}</span>
+      <span class="diff-desc">${d.desc}</span>
+    </button>
+  `).join('');
+  $('#hall-difficulty-buttons').innerHTML = html;
+  $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const diff = btn.dataset.diffId;
+      launchGame(gameId, GameState._pendingMode, diff);
+    });
+  });
+}
+
 function launchGame(gameId, modeId, difficulty) {
   if (gameId === 'turtle') {
     if (modeId === 'turtle-host') TurtleHostMode.start(difficulty);
-    else if (modeId === 'turtle-guess') TurtleGuessMode.start();
+    else if (modeId === 'turtle-guess') TurtleGuessMode.start(difficulty);
   }
 }
 
@@ -807,6 +820,18 @@ document.addEventListener('DOMContentLoaded', () => {
     TurtleGuessMode.onRerollCancel();
   });
 
+  // Turtle Guess player hint
+  const turtleGuessHintInput = $('#turtle-guess-hint-input');
+  $('#btn-turtle-guess-hint-send').addEventListener('click', () => {
+    TurtleGuessMode.submitHintAndContinue(turtleGuessHintInput.value);
+  });
+  turtleGuessHintInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) $('#btn-turtle-guess-hint-send').click();
+  });
+  $('#btn-turtle-guess-hint-skip').addEventListener('click', () => {
+    TurtleGuessMode.submitHintAndContinue('');
+  });
+
   // Retry buttons
   $('#btn-host-retry').addEventListener('click', () => AIHostMode.retry());
   $('#btn-guess-retry').addEventListener('click', () => AIGuessMode.retry());
@@ -827,11 +852,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btn-play-again').addEventListener('click', () => {
     const prevMode = GameState.mode;
     const prevCategory = GameState.category;
+    const prevDifficulty = GameState.turtle.difficulty;
     GameState.reset();
     if (prevMode === 'ai-guess' && prevCategory) {
       AIGuessMode.start(prevCategory);
     } else if (prevMode === 'turtle-guess') {
-      TurtleGuessMode.start();
+      TurtleGuessMode.start(prevDifficulty || 'normal');
     } else {
       resetToGameHall();
     }

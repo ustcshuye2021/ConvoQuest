@@ -255,8 +255,12 @@ function updateTurtleHostStats() {
 
 function updateTurtleGuessStats() {
   const t = GameState.turtle;
+  const maxQ = t.maxQuestions || 20;
+  const maxG = t.maxGuesses || 3;
   $('#turtle-guess-questions').textContent = t.questionsAsked;
-  $('#turtle-guess-guesses-left').textContent = `${3 - t.guessesUsed}`;
+  const qLimit = $('#turtle-guess-q-limit');
+  if (qLimit) qLimit.textContent = `/${maxQ}`;
+  $('#turtle-guess-guesses-left').textContent = `${maxG - t.guessesUsed}`;
   $('#turtle-guess-confidence').textContent = `${t.confidence}`;
   const fill = document.getElementById('turtle-confidence-fill');
   if (fill) fill.style.width = `${t.confidence}%`;

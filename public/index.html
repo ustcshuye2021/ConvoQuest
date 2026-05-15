@@ -359,11 +359,11 @@
   <section id="screen-turtle-guess" class="screen">
     <div class="guess-layout">
       <aside class="guess-sidebar">
-        <div class="sidebar-title">🍲 海龟汤 · AI猜 <button class="btn-settings btn-open-settings" title="设置">⚙️</button></div>
+        <div class="sidebar-title">🍲 海龟汤 · AI猜 <span id="turtle-guess-badge" class="badge"></span><button class="btn-settings btn-open-settings" title="设置">⚙️</button></div>
         <div class="sidebar-stats">
           <div class="stat-row">
             <span>❓ 提问</span>
-            <strong id="turtle-guess-questions">0</strong><span>/20</span>
+            <strong id="turtle-guess-questions">0</strong><span id="turtle-guess-q-limit">/20</span>
           </div>
           <div class="stat-row">
             <span>🎯 猜测剩余</span>
@@ -427,6 +427,14 @@
             </select>
             <button id="btn-turtle-guess-reroll-confirm" class="btn-primary">确认纠错</button>
             <button id="btn-turtle-guess-reroll-cancel" class="btn-secondary">取消</button>
+          </div>
+        </div>
+        <div id="turtle-guess-hint-prompt-area" class="hidden" style="padding:12px;text-align:center;background:var(--parchment);border:1px solid var(--border);border-radius:8px">
+          <p style="margin-bottom:8px;color:var(--gold);font-size:0.95rem">💭 给AI一个提示帮助它推理？</p>
+          <div class="input-area" style="justify-content:center">
+            <input type="text" id="turtle-guess-hint-input" placeholder="输入提示（可选）..." autocomplete="off">
+            <button id="btn-turtle-guess-hint-send" class="btn-primary" style="width:auto;padding:8px 16px">发送提示</button>
+            <button id="btn-turtle-guess-hint-skip" class="btn-secondary">跳过</button>
           </div>
         </div>
         <div id="turtle-guess-input-area" class="input-area hidden">

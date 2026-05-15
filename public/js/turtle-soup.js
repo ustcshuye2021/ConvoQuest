@@ -1,5 +1,12 @@
 /* Turtle Soup (海龟汤) Game Logic */
 
+const DIFFICULTY_CONFIG = {
+  easy:   { name: '简单', maxQuestions: 20, maxGuesses: 3 },
+  normal: { name: '一般', maxQuestions: 40, maxGuesses: 4 },
+  hard:   { name: '困难', maxQuestions: 60, maxGuesses: 5 },
+  hell:   { name: '地狱', maxQuestions: 80, maxGuesses: 6 }
+};
+
 /* === AI Hosts Mode (AI出题 我来猜) === */
 
 const TurtleHostMode = {
@@ -381,9 +388,22 @@ const TurtleGuessMode = {
   _lastPrompt: null,
   _stateSnapshot: null,
 
-  async start() {
+  async start(difficulty) {
     GameState.reset();
     GameState.mode = 'turtle-guess';
+
+    const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
+    const t = GameState.turtle;
+    t.difficulty = difficulty;
+    t.maxQuestions = config.maxQuestions;
+    t.maxGuesses = config.maxGuesses;
+
+    const diffLabels = { easy: '简单', normal: '一般', hard: '困难', hell: '地狱' };
+    const badge = $('#turtle-guess-badge');
+    if (badge) {
+      badge.textContent = diffLabels[difficulty] || '一般';
+      badge.className = `badge badge-${difficulty}`;
+    }
 
     // Clear UI
     $('#turtle-guess-surface-display').textContent = '';
@@ -393,6 +413,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-response-area').classList.add('hidden');
     $('#turtle-guess-confirm-area').classList.add('hidden');
     $('#turtle-guess-reroll-area').classList.add('hidden');
+    $('#turtle-guess-hint-prompt-area').classList.add('hidden');
     $('#turtle-guess-setup').classList.remove('hidden');
     $('#turtle-guess-surface-input').value = '';
     updateTurtleGuessStats();
@@ -410,7 +431,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-surface-box').classList.remove('hidden');
 
     GameState.messages = [
-      { role: 'system', content: TURTLE_PROMPTS.guessSystem }
+      { role: 'system', content: TURTLE_PROMPTS.guessSystem(GameState.turtle.maxQuestions, GameState.turtle.maxGuesses) }
     ];
 
     // First: analyze the surface and show reasoning
@@ -473,18 +494,79 @@ const TurtleGuessMode = {
     addMsg($('#turtle-guess-chat'), answer, 'user');
     t.questionsAsked++;
 
+    // Check question limit - force final guess
+    if (t.questionsAsked >= t.maxQuestions) {
+      updateTurtleGuessStats();
+      const prompt = TURTLE_PROMPTS.guessForceGuess(
+        t.confirmedFacts, t.keyInsights,
+        t.questionsAsked, t.guessesUsed, t.maxGuesses
+      );
+      $('#turtle-guess-response-area').classList.add('hidden');
+      $('#turtle-guess-input-area').classList.add('hidden');
+      await this.askNext(prompt);
+      return;
+    }
+
+    // Check hint prompt (every 15 questions)
+    if (t.questionsAsked > 0 && t.questionsAsked % 15 === 0) {
+      updateTurtleGuessStats();
+      t._lastAnswer = answer;
+      this.showHintPrompt();
+      return;
+    }
+
     const prompt = TURTLE_PROMPTS.guessTurn(
       answer,
       t.confirmedFacts,
       t.keyInsights,
       t.questionsAsked,
       t.guessesUsed,
-      t.confidence
+      t.confidence,
+      t.maxQuestions,
+      t.maxGuesses
     );
 
     $('#turtle-guess-response-area').classList.add('hidden');
     $('#turtle-guess-input-area').classList.add('hidden');
     await this.askNext(prompt);
+  },
+
+  showHintPrompt() {
+    const t = GameState.turtle;
+    addMsg($('#turtle-guess-chat'), `💭 已进行 ${t.questionsAsked}/${t.maxQuestions} 个问题。你可以给AI一个提示帮助它推理，也可以跳过。`, 'system');
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    $('#turtle-guess-hint-prompt-area').classList.remove('hidden');
+    $('#turtle-guess-hint-input').value = '';
+    $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+  },
+
+  submitHintAndContinue(hintText) {
+    const t = GameState.turtle;
+    $('#turtle-guess-hint-prompt-area').classList.add('hidden');
+
+    const trimmed = hintText.trim();
+    if (trimmed) {
+      t.playerHints.push(trimmed);
+      addMsg($('#turtle-guess-chat'), `💡 提示：${trimmed}`, 'user');
+    }
+
+    let prompt = TURTLE_PROMPTS.guessTurn(
+      t._lastAnswer || '',
+      t.confirmedFacts,
+      t.keyInsights,
+      t.questionsAsked,
+      t.guessesUsed,
+      t.confidence,
+      t.maxQuestions,
+      t.maxGuesses
+    );
+
+    if (trimmed) {
+      prompt += `\n\n[玩家主动提示] 玩家给你一个额外提示：「${trimmed}」。请结合这个提示继续推理。`;
+    }
+
+    this.askNext(prompt);
   },
 
   async onFreeInput(text) {
@@ -606,7 +688,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-confirm-area').classList.add('hidden');
     addMsg($('#turtle-guess-chat'), '🔶 很接近了，但还差一些。', 'user');
 
-    if (t.guessesUsed >= 3) {
+    if (t.guessesUsed >= t.maxGuesses) {
       t.gameOver = true;
       addMsg($('#turtle-guess-chat'), 'AI 用完了所有猜测次数，进入复盘阶段...', 'system');
       await this.startReview(false);
@@ -627,7 +709,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-confirm-area').classList.add('hidden');
     addMsg($('#turtle-guess-chat'), '🔴 还差很多。', 'user');
 
-    if (t.guessesUsed >= 3) {
+    if (t.guessesUsed >= t.maxGuesses) {
       t.gameOver = true;
       addMsg($('#turtle-guess-chat'), 'AI 用完了所有猜测次数，进入复盘阶段...', 'system');
       await this.startReview(false);
@@ -787,23 +869,26 @@ const TurtleGuessMode = {
   showResult() {
     const t = GameState.turtle;
     const won = t.won;
+    const config = DIFFICULTY_CONFIG[t.difficulty] || DIFFICULTY_CONFIG.normal;
 
     if (won) {
       $('#result-title').textContent = '🤖 AI 猜对了！';
     } else {
       $('#result-title').textContent = '🧠 你赢了！AI 没猜出来';
     }
-    $('#result-name').textContent = '海龟汤';
+    const diffLabels = { easy: '简单', normal: '一般', hard: '困难', hell: '地狱' };
+    $('#result-name').textContent = `海龟汤 · ${diffLabels[t.difficulty] || '一般'}`;
     $('#result-details').innerHTML = `
       <p><strong>汤面：</strong>${t.surface}</p>
-      <p>📊 总提问：${t.questionsAsked} 个</p>
-      <p>🎯 正式猜测：${t.guessesUsed} 次</p>
+      <p>📊 总提问：${t.questionsAsked}/${t.maxQuestions}</p>
+      <p>🎯 正式猜测：${t.guessesUsed}/${t.maxGuesses}</p>
+      <p>💡 玩家提示：${t.playerHints.length}次</p>
     `;
 
     let rating = '';
     if (won) {
-      if (t.questionsAsked <= 5) rating = '🤖 AI 太强了！';
-      else if (t.questionsAsked <= 10) rating = '🤖 AI 表现不错';
+      if (t.questionsAsked <= t.maxQuestions * 0.25) rating = '🤖 AI 太强了！';
+      else if (t.questionsAsked <= t.maxQuestions * 0.5) rating = '🤖 AI 表现不错';
       else rating = '🤖 AI 费了点力气';
     } else {
       rating = '🧠 你的题目太难了！';
