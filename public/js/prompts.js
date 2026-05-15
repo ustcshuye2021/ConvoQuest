@@ -155,7 +155,7 @@ PROMPTS.aiHostAnswer = (figure, userInput, existingPortrait, questionsAsked) => 
 猜测时：
 {"type":"guess","result":"CORRECT/CLOSE/WRONG"}
 
-portrait规则`（仅提问时填写，猜测时为{}）：
+portrait规则（仅提问时填写，猜测时为{}）：
 - 从本次Q&A直接确定的人物信息
 - 类别：时代、地域、性别、领域、身份、事迹、生平、其他
 - 只提取直接确定的信息，不推断
