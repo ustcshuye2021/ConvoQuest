@@ -77,12 +77,15 @@ async function chatFull(messages, _apiKey) {
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let fullText = '';
+  let rawText = '';
   let buffer = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    const chunk = decoder.decode(value, { stream: true });
+    rawText += chunk;
+    buffer += chunk;
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
     for (const line of lines) {
@@ -95,6 +98,16 @@ async function chatFull(messages, _apiKey) {
         const content = json.choices?.[0]?.delta?.content || '';
         if (content) fullText += content;
       } catch {}
+    }
+  }
+
+  // Fallback: API may not support streaming, response is plain JSON
+  if (!fullText && rawText) {
+    try {
+      const data = JSON.parse(rawText);
+      fullText = data.choices?.[0]?.message?.content || '';
+    } catch {
+      fullText = rawText;
     }
   }
 

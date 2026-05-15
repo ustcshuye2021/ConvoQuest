@@ -66,8 +66,9 @@ const AIHostMode = {
         if (!jsonMatch) throw new Error('无法解析');
         figure = JSON.parse(jsonMatch[0]);
       } catch (e) {
-        addMsg($('#host-chat-area'), '选择人物失败，请重试。', 'system');
+        addMsg($('#host-chat-area'), `选择人物失败，请重试。\n\n（原始响应：${raw.substring(0, 200)}${raw.length > 200 ? '...' : ''}）`, 'system');
         hideLoading('host-loading');
+        setTimeout(() => showScreen('screen-mode'), 2000);
         return;
       }
 
@@ -195,7 +196,7 @@ const AIHostMode = {
 
   async handleInput(userText) {
     const host = GameState.host;
-    if (host.gameOver) return;
+    if (host.gameOver || !host.secretFigure) return;
 
     const trimmed = userText.trim();
     if (!trimmed) return;
