@@ -1,0 +1,631 @@
+/* Turtle Soup (海龟汤) Game Logic */
+
+/* === AI Hosts Mode (AI出题 我来猜) === */
+
+const TurtleHostMode = {
+  async start(difficulty) {
+    GameState.reset();
+    GameState.mode = 'turtle-host';
+    GameState.difficulty = difficulty;
+
+    const diffLabels = { easy: '简单', medium: '中等', hard: '困难' };
+    $('#turtle-host-badge').textContent = diffLabels[difficulty];
+    $('#turtle-host-badge').className = `badge badge-${difficulty}`;
+
+    // Clear UI
+    $('#turtle-host-surface').textContent = '';
+    $('#turtle-host-surface-box').classList.add('hidden');
+    $('#turtle-host-chat').innerHTML = '';
+    $('#turtle-host-input-area').classList.add('hidden');
+    $('#turtle-host-guess-area').classList.add('hidden');
+    $('#turtle-host-known').innerHTML = '';
+    $('#turtle-host-known-empty').style.display = '';
+    $('#turtle-host-hints-revealed').classList.add('hidden');
+    $('#turtle-host-hints-list').innerHTML = '';
+    updateTurtleHostStats();
+    showScreen('screen-turtle-host');
+
+    // Generate puzzle
+    showLoading('turtle-host-loading');
+    addMsg($('#turtle-host-chat'), '正在生成海龟汤题目...', 'system');
+
+    try {
+      const raw = await chatFull(
+        [{ role: 'user', content: TURTLE_PROMPTS.hostGenerate(difficulty) }],
+        GameState.apiKey
+      );
+
+      let puzzle;
+      try {
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('无法解析');
+        puzzle = JSON.parse(jsonMatch[0]);
+      } catch {
+        addMsg($('#turtle-host-chat'), '生成题目失败，请重试。', 'system');
+        hideLoading('turtle-host-loading');
+        return;
+      }
+
+      GameState.turtle.puzzle = puzzle;
+      GameState.messages = [
+        { role: 'system', content: TURTLE_PROMPTS.hostSystem + '\n\n汤面：' + puzzle.surface + '\n汤底：' + puzzle.truth + '\n类型：' + puzzle.genre }
+      ];
+
+      // Show surface
+      hideLoading('turtle-host-loading');
+      $('#turtle-host-chat').innerHTML = '';
+      $('#turtle-host-surface').textContent = puzzle.surface;
+      $('#turtle-host-surface-box').classList.remove('hidden');
+      $('#turtle-host-input-area').classList.remove('hidden');
+      addMsg($('#turtle-host-chat'), '请通过问"是/否"问题来推理真相。你也可以输入「提示」获取线索，或输入「放弃」揭晓答案。', 'system');
+    } catch (err) {
+      hideLoading('turtle-host-loading');
+      addMsg($('#turtle-host-chat'), '出错了: ' + err.message, 'system');
+    }
+  },
+
+  async handleInput(text) {
+    const t = GameState.turtle;
+    if (t.gameOver) return;
+
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    $('#turtle-host-input').value = '';
+    addMsg($('#turtle-host-chat'), trimmed, 'user');
+
+    // Hint request
+    if (trimmed === '提示' || trimmed === 'hint') {
+      this.giveHint();
+      return;
+    }
+
+    // Give up
+    if (trimmed === '放弃' || trimmed === 'give up') {
+      this.revealTruth();
+      return;
+    }
+
+    t.questionsAsked++;
+    updateTurtleHostStats();
+
+    // Track question for known info
+    t.lastQuestion = trimmed;
+
+    // Send to AI
+    showLoading('turtle-host-loading');
+    const turnMsg = TURTLE_PROMPTS.hostTurn(
+      t.puzzle.surface, t.puzzle.truth,
+      t.hintsRevealed, t.questionsAsked, 30
+    );
+    GameState.messages.push({ role: 'user', content: turnMsg + '\n\n玩家提问：' + trimmed });
+
+    try {
+      const div = streamMsg($('#turtle-host-chat'), 'ai');
+      let jsonDone = false;
+      let jsonBuffer = '';
+
+      await chatStream(
+        GameState.messages, GameState.apiKey,
+        (chunk) => {
+          if (!jsonDone) {
+            jsonBuffer += chunk;
+            const nlIdx = jsonBuffer.indexOf('\n');
+            if (nlIdx !== -1) {
+              jsonDone = true;
+              const afterJson = jsonBuffer.substring(nlIdx + 1).replace(/^\s+/, '');
+              if (afterJson) appendToMsg(div, afterJson);
+            } else if (!jsonBuffer.trimStart().startsWith('{')) {
+              jsonDone = true;
+              appendToMsg(div, jsonBuffer);
+            }
+          } else {
+            appendToMsg(div, chunk);
+          }
+        },
+        (text) => {
+          GameState.messages.push({ role: 'assistant', content: text });
+          const nlIdx = text.indexOf('\n');
+          const display = nlIdx !== -1 ? text.substring(nlIdx + 1).replace(/^\s+/, '') : text;
+          if (!text.trimStart().startsWith('{')) {
+            div.textContent = text;
+          } else {
+            div.textContent = display;
+          }
+          this.parseAnswer(text, trimmed);
+        }
+      );
+      hideLoading('turtle-host-loading');
+      $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
+    } catch (err) {
+      hideLoading('turtle-host-loading');
+      addMsg($('#turtle-host-chat'), '出错了: ' + err.message, 'system');
+    }
+  },
+
+  async handleGuess(text) {
+    const t = GameState.turtle;
+    if (t.gameOver) return;
+
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    $('#turtle-host-guess-input').value = '';
+    addMsg($('#turtle-host-chat'), '🔮 我的猜测：' + trimmed, 'user');
+    t.guessesUsed++;
+    updateTurtleHostStats();
+
+    // Evaluate guess
+    showLoading('turtle-host-loading');
+    try {
+      const evalMsgs = [
+        { role: 'system', content: '你是一个判断助手。只回复CORRECT、CLOSE、PARTIAL或WRONG这四个英文词之一，不要回复任何其他内容。' },
+        { role: 'user', content: TURTLE_PROMPTS.evaluateGuess(t.puzzle.truth, trimmed) }
+      ];
+      const result = (await chatFull(evalMsgs, GameState.apiKey)).trim().toUpperCase();
+      hideLoading('turtle-host-loading');
+
+      if (result.includes('CORRECT')) {
+        addMsg($('#turtle-host-chat'), '🎉 完全正确！', 'ai');
+        this.revealTruth(true);
+      } else if (result.includes('CLOSE')) {
+        addMsg($('#turtle-host-chat'), '🔶 很接近了！方向对了但还差一些关键细节。继续提问吧。', 'system');
+      } else if (result.includes('PARTIAL')) {
+        addMsg($('#turtle-host-chat'), '🟡 有一部分是对的，但整体还差很远。', 'system');
+      } else {
+        addMsg($('#turtle-host-chat'), '❌ 不对，真相不是这样的。', 'system');
+      }
+      $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
+    } catch (err) {
+      hideLoading('turtle-host-loading');
+      addMsg($('#turtle-host-chat'), '判断出错: ' + err.message, 'system');
+    }
+  },
+
+  giveHint() {
+    const t = GameState.turtle;
+    if (t.hintsRevealed >= 4) {
+      addMsg($('#turtle-host-chat'), '所有提示已用完！', 'system');
+      return;
+    }
+
+    t.hintsRevealed++;
+    const hint = t.puzzle.hints?.[`H${t.hintsRevealed}`];
+    if (hint) {
+      addMsg($('#turtle-host-chat'), `💡 提示${t.hintsRevealed}：${hint}`, 'system');
+      // Add hint to sidebar
+      this.addHintToList(t.hintsRevealed, hint);
+    }
+    updateTurtleHostStats();
+    $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
+  },
+
+  parseAnswer(text, question) {
+    const t = GameState.turtle;
+    const firstLine = text.split('\n')[0].trim();
+    if (firstLine.startsWith('{')) {
+      try {
+        const json = JSON.parse(firstLine);
+        const answer = json.answer;
+        if (answer && ['是', '否', '无关'].includes(answer)) {
+          t.knownInfo.push({ question, answer });
+          this.updateKnownInfoPanel();
+        }
+      } catch {}
+    }
+  },
+
+  updateKnownInfoPanel() {
+    const t = GameState.turtle;
+    const ul = $('#turtle-host-known');
+    const empty = $('#turtle-host-known-empty');
+
+    if (t.knownInfo.length > 0) {
+      ul.innerHTML = t.knownInfo.map(info => {
+        const icon = info.answer === '是' ? '✅' : info.answer === '否' ? '❌' : '🤷';
+        const qShort = info.question.length > 30 ? info.question.slice(0, 30) + '...' : info.question;
+        return `<li><span class="known-cat">${icon} ${info.answer}</span>${qShort}</li>`;
+      }).join('');
+      empty.style.display = 'none';
+    } else {
+      ul.innerHTML = '';
+      empty.style.display = '';
+    }
+  },
+
+  addHintToList(num, hint) {
+    const section = $('#turtle-host-hints-revealed');
+    const list = $('#turtle-host-hints-list');
+    section.classList.remove('hidden');
+    list.innerHTML += `<li><span class="known-cat">💡 H${num}</span>${hint}</li>`;
+  },
+
+  revealTruth(won = false) {
+    const t = GameState.turtle;
+    t.gameOver = true;
+    t.won = won;
+    const puzzle = t.puzzle;
+
+    addMsg($('#turtle-host-chat'), `━━━ 真相揭晓 ━━━\n${puzzle.truth}`, 'system');
+    $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
+
+    this.startReview(won);
+  },
+
+  // --- Review ---
+
+  async startReview(won) {
+    const t = GameState.turtle;
+    const puzzle = t.puzzle;
+
+    addMsg($('#turtle-host-chat'), '━━━ 复盘阶段 ━━━', 'system');
+
+    // Hide game input, show review area
+    $('#turtle-host-input-area').classList.add('hidden');
+    $('#turtle-host-guess-area').classList.add('hidden');
+    $('#turtle-host-review-area').classList.remove('hidden');
+    $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
+
+    const reviewPrompt = TURTLE_PROMPTS.hostReview(
+      won, puzzle, t.questionsAsked, t.hintsRevealed
+    );
+
+    showLoading('turtle-host-loading');
+    try {
+      const div = streamMsg($('#turtle-host-chat'), 'ai');
+      await chatStream(
+        [...GameState.messages, { role: 'user', content: reviewPrompt }],
+        GameState.apiKey,
+        (chunk) => appendToMsg(div, chunk),
+        (text) => { GameState.messages.push({ role: 'assistant', content: text }); }
+      );
+      hideLoading('turtle-host-loading');
+    } catch (err) {
+      hideLoading('turtle-host-loading');
+      addMsg($('#turtle-host-chat'), '复盘出错: ' + err.message, 'system');
+    }
+  },
+
+  async handleReviewInput(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    $('#turtle-host-review-input').value = '';
+    addMsg($('#turtle-host-chat'), trimmed, 'user');
+
+    showLoading('turtle-host-loading');
+    try {
+      const div = streamMsg($('#turtle-host-chat'), 'ai');
+      await chatStream(
+        [...GameState.messages, { role: 'user', content: trimmed }],
+        GameState.apiKey,
+        (chunk) => appendToMsg(div, chunk),
+        (text) => { GameState.messages.push({ role: 'assistant', content: text }); }
+      );
+      hideLoading('turtle-host-loading');
+    } catch (err) {
+      hideLoading('turtle-host-loading');
+      addMsg($('#turtle-host-chat'), '回复出错: ' + err.message, 'system');
+    }
+  },
+
+  showResult() {
+    const t = GameState.turtle;
+    const won = t.won;
+    const puzzle = t.puzzle;
+
+    if (won) {
+      $('#result-title').textContent = '🎉 推理成功！';
+    } else {
+      $('#result-title').textContent = '😅 游戏结束';
+    }
+
+    $('#result-name').textContent = puzzle.genre + ' · 海龟汤';
+    $('#result-details').innerHTML = `
+      <p><strong>汤面：</strong>${puzzle.surface}</p>
+      <p style="margin-top:8px"><strong>汤底：</strong>${puzzle.truth}</p>
+    `;
+
+    let rating = '';
+    if (won) {
+      if (t.questionsAsked <= 5) rating = '🏆 逻辑天才！';
+      else if (t.questionsAsked <= 10) rating = '⭐ 推理高手';
+      else if (t.questionsAsked <= 20) rating = '👍 思维敏捷';
+      else rating = '😅 曲折过关';
+    } else {
+      rating = '🤔 下次再挑战';
+    }
+
+    $('#result-stats').innerHTML = `
+      <p>❓ 提问次数：${t.questionsAsked}</p>
+      <p>💡 使用提示：${t.hintsRevealed}/4</p>
+      <p>🔮 猜测次数：${t.guessesUsed}</p>
+    `;
+    $('#result-rating').textContent = rating;
+    $('#result-fun-fact').classList.add('hidden');
+    showScreen('screen-result');
+  }
+};
+
+/* === Player Hosts Mode (我出题 AI来猜) === */
+
+const TurtleGuessMode = {
+  async start() {
+    GameState.reset();
+    GameState.mode = 'turtle-guess';
+
+    // Clear UI
+    $('#turtle-guess-surface-display').textContent = '';
+    $('#turtle-guess-surface-box').classList.add('hidden');
+    $('#turtle-guess-chat').innerHTML = '';
+    $('#turtle-guess-input-area').classList.add('hidden');
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-confirm-area').classList.add('hidden');
+    $('#turtle-guess-setup').classList.remove('hidden');
+    $('#turtle-guess-surface-input').value = '';
+    updateTurtleGuessStats();
+
+    showScreen('screen-turtle-guess');
+  },
+
+  async onSubmitSurface() {
+    const text = $('#turtle-guess-surface-input').value.trim();
+    if (!text) return;
+
+    GameState.turtle.surface = text;
+    $('#turtle-guess-setup').classList.add('hidden');
+    $('#turtle-guess-surface-display').textContent = text;
+    $('#turtle-guess-surface-box').classList.remove('hidden');
+    addMsg($('#turtle-guess-chat'), '汤面已收到！开始提问。', 'system');
+
+    GameState.messages = [
+      { role: 'system', content: TURTLE_PROMPTS.guessSystem }
+    ];
+
+    // Ask first question
+    await this.askNext(TURTLE_PROMPTS.guessFirstTurn(text));
+  },
+
+  async onAnswer(answer) {
+    const t = GameState.turtle;
+    if (t.gameOver) return;
+
+    addMsg($('#turtle-guess-chat'), answer, 'user');
+    t.questionsAsked++;
+
+    const prompt = TURTLE_PROMPTS.guessTurn(
+      answer,
+      t.confirmed,
+      t.ruledOut,
+      t.keyInsights,
+      t.questionsAsked,
+      t.guessesUsed,
+      t.confidence
+    );
+
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    await this.askNext(prompt);
+  },
+
+  async onFreeInput(text) {
+    const t = GameState.turtle;
+    if (t.gameOver) return;
+
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    $('#turtle-guess-input').value = '';
+    addMsg($('#turtle-guess-chat'), trimmed, 'user');
+
+    const prompt = `[自由对话] 用户说：\n"${trimmed}"\n\n请理解用户意图，将其视为对你上一个问题的回答（如果适用），然后继续提问。`;
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    await this.askNext(prompt);
+  },
+
+  async askNext(userContent) {
+    showLoading('turtle-guess-loading');
+
+    function stripJsonLine(text) {
+      const nlIdx = text.indexOf('\n');
+      if (nlIdx === -1) {
+        return text.trimStart().startsWith('{') ? '' : text;
+      }
+      return text.substring(nlIdx + 1).replace(/^\s+/, '');
+    }
+
+    try {
+      const div = streamMsg($('#turtle-guess-chat'), 'ai');
+      let jsonDone = false;
+      let jsonBuffer = '';
+      const fullText = await chatStream(
+        [...GameState.messages, { role: 'user', content: userContent }],
+        GameState.apiKey,
+        (chunk) => {
+          if (!jsonDone) {
+            jsonBuffer += chunk;
+            const nlIdx = jsonBuffer.indexOf('\n');
+            if (nlIdx !== -1) {
+              jsonDone = true;
+              const afterJson = jsonBuffer.substring(nlIdx + 1).replace(/^\s+/, '');
+              if (afterJson) appendToMsg(div, afterJson);
+            } else if (!jsonBuffer.trimStart().startsWith('{')) {
+              jsonDone = true;
+              appendToMsg(div, jsonBuffer);
+            }
+          } else {
+            appendToMsg(div, chunk);
+          }
+        },
+        (text) => {
+          GameState.messages.push({ role: 'assistant', content: text });
+          this.parseResponse(text);
+          div.textContent = stripJsonLine(text);
+        }
+      );
+      hideLoading('turtle-guess-loading');
+
+      const displayText = stripJsonLine(fullText);
+      if (displayText.includes('正式猜测') || displayText.includes('🎯')) {
+        this.showGuessConfirmation(displayText);
+      } else {
+        $('#turtle-guess-response-area').classList.remove('hidden');
+        $('#turtle-guess-input-area').classList.remove('hidden');
+      }
+      $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+    } catch (err) {
+      hideLoading('turtle-guess-loading');
+      addMsg($('#turtle-guess-chat'), '出错了: ' + err.message, 'system');
+    }
+  },
+
+  parseResponse(text) {
+    const firstLine = text.split('\n')[0].trim();
+    if (firstLine.startsWith('{')) {
+      try {
+        const json = JSON.parse(firstLine);
+        if (json.confidence !== undefined) GameState.turtle.confidence = json.confidence;
+        if (json.confirmed) GameState.turtle.confirmed = json.confirmed;
+        if (json.ruled_out) GameState.turtle.ruledOut = json.ruled_out;
+        if (json.key_insights) GameState.turtle.keyInsights = json.key_insights;
+      } catch {}
+    }
+    updateTurtleGuessStats();
+  },
+
+  showGuessConfirmation(guessText) {
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    $('#turtle-guess-confirm-area').classList.remove('hidden');
+    $('#turtle-guess-confirm-text').textContent = guessText.replace(/\{.*?\}/, '').trim();
+    $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+  },
+
+  async onGuessCorrect() {
+    const t = GameState.turtle;
+    t.gameOver = true;
+    t.won = true;
+    $('#turtle-guess-confirm-area').classList.add('hidden');
+    addMsg($('#turtle-guess-chat'), '猜对了！', 'user');
+
+    await this.startReview(true);
+  },
+
+  async onGuessWrong() {
+    const t = GameState.turtle;
+    t.guessesUsed++;
+    updateTurtleGuessStats();
+
+    $('#turtle-guess-confirm-area').classList.add('hidden');
+    addMsg($('#turtle-guess-chat'), '猜错了！', 'user');
+
+    if (t.guessesUsed >= 3) {
+      t.gameOver = true;
+      addMsg($('#turtle-guess-chat'), 'AI 用完了所有猜测次数，进入复盘阶段...', 'system');
+      await this.startReview(false);
+      return;
+    }
+
+    // Continue asking
+    const prompt = TURTLE_PROMPTS.guessTurn(
+      '猜错了，不是这个真相。',
+      t.confirmed,
+      t.ruledOut,
+      t.keyInsights,
+      t.questionsAsked,
+      t.guessesUsed,
+      t.confidence
+    );
+    await this.askNext(prompt);
+  },
+
+  // --- Review ---
+
+  async startReview(won) {
+    const t = GameState.turtle;
+
+    addMsg($('#turtle-guess-chat'), '━━━ 复盘阶段 ━━━', 'system');
+
+    // Hide other areas, show review area
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    $('#turtle-guess-confirm-area').classList.add('hidden');
+    $('#turtle-guess-review-area').classList.remove('hidden');
+    $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+
+    const reviewPrompt = TURTLE_PROMPTS.guessReview(
+      won, t.surface, t.confirmed, t.ruledOut,
+      t.keyInsights, t.questionsAsked, t.guessesUsed
+    );
+
+    showLoading('turtle-guess-loading');
+    try {
+      const div = streamMsg($('#turtle-guess-chat'), 'ai');
+      await chatStream(
+        [...GameState.messages, { role: 'user', content: reviewPrompt }],
+        GameState.apiKey,
+        (chunk) => appendToMsg(div, chunk),
+        (text) => { GameState.messages.push({ role: 'assistant', content: text }); }
+      );
+      hideLoading('turtle-guess-loading');
+    } catch (err) {
+      hideLoading('turtle-guess-loading');
+      addMsg($('#turtle-guess-chat'), '复盘出错: ' + err.message, 'system');
+    }
+  },
+
+  async handleReviewInput(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    $('#turtle-guess-review-input').value = '';
+    addMsg($('#turtle-guess-chat'), trimmed, 'user');
+
+    showLoading('turtle-guess-loading');
+    try {
+      const div = streamMsg($('#turtle-guess-chat'), 'ai');
+      await chatStream(
+        [...GameState.messages, { role: 'user', content: trimmed }],
+        GameState.apiKey,
+        (chunk) => appendToMsg(div, chunk),
+        (text) => { GameState.messages.push({ role: 'assistant', content: text }); }
+      );
+      hideLoading('turtle-guess-loading');
+    } catch (err) {
+      hideLoading('turtle-guess-loading');
+      addMsg($('#turtle-guess-chat'), '回复出错: ' + err.message, 'system');
+    }
+  },
+
+  showResult() {
+    const t = GameState.turtle;
+    const won = t.won;
+
+    if (won) {
+      $('#result-title').textContent = '🤖 AI 猜对了！';
+    } else {
+      $('#result-title').textContent = '🧠 你赢了！AI 没猜出来';
+    }
+    $('#result-name').textContent = '海龟汤';
+    $('#result-details').innerHTML = `
+      <p><strong>汤面：</strong>${t.surface}</p>
+      <p>📊 总提问：${t.questionsAsked} 个</p>
+      <p>🎯 正式猜测：${t.guessesUsed} 次</p>
+    `;
+
+    let rating = '';
+    if (won) {
+      if (t.questionsAsked <= 5) rating = '🤖 AI 太强了！';
+      else if (t.questionsAsked <= 10) rating = '🤖 AI 表现不错';
+      else rating = '🤖 AI 费了点力气';
+    } else {
+      rating = '🧠 你的题目太难了！';
+    }
+
+    $('#result-rating').textContent = rating;
+    $('#result-stats').innerHTML = '';
+    $('#result-fun-fact').classList.add('hidden');
+    showScreen('screen-result');
+  }
+};

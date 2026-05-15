@@ -1,0 +1,12 @@
+{
+  "name": "guess-historical-figure",
+  "version": "1.0.0",
+  "description": "猜历史人物网页游戏",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 谜题游戏厅</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Screen 1: Welcome -->
+  <section id="screen-welcome" class="screen active">
+    <div class="container">
+      <div class="welcome-hero">
+        <div class="welcome-logo">🎲</div>
+        <h1>AI 谜题游戏厅</h1>
+        <p class="welcome-tagline">和 AI 一起玩猜谜推理游戏</p>
+      </div>
+
+      <!-- Built-in models (no key needed) -->
+      <div class="model-section">
+        <h3 class="model-section-title">选择 AI 模型</h3>
+        <div class="builtin-models">
+          <div class="model-card selected" data-model="glm-5.1">
+            <div class="model-card-name">GLM-5.1</div>
+            <div class="model-card-badge">推荐</div>
+          </div>
+          <div class="model-card" data-model="glm-5">
+            <div class="model-card-name">GLM-5</div>
+            <div class="model-card-desc">均衡</div>
+          </div>
+          <div class="model-card" data-model="glm-4.5-air">
+            <div class="model-card-name">GLM-4.5 Air</div>
+            <div class="model-card-desc">快速</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom API section -->
+      <div class="model-section">
+        <div class="section-divider"><span>或使用其他 API</span></div>
+        <div class="custom-api-tabs">
+          <button class="custom-tab active" data-tab="preset">官方预设</button>
+          <button class="custom-tab" data-tab="custom">自定义 API</button>
+        </div>
+
+        <!-- Preset models (dropdown) -->
+        <div id="preset-form" class="custom-api-form">
+          <select id="preset-provider">
+            <option value="" disabled selected>选择模型</option>
+            <optgroup label="DeepSeek">
+              <option value="deepseek-v4-flash">DeepSeek V4 Flash（快速）</option>
+              <option value="deepseek-v4-pro">DeepSeek V4 Pro（更强）</option>
+            </optgroup>
+            <optgroup label="OpenAI">
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+            </optgroup>
+            <optgroup label="阿里云">
+              <option value="qwen-plus">通义千问 Plus</option>
+            </optgroup>
+            <optgroup label="月之暗面">
+              <option value="moonshot-v1-auto">Kimi</option>
+            </optgroup>
+          </select>
+          <div class="input-row">
+            <input type="password" id="preset-api-key" placeholder="API Key" autocomplete="off">
+            <button id="btn-toggle-preset-key" class="btn-icon" title="显示/隐藏">👁</button>
+          </div>
+          <button id="btn-use-preset" class="btn-secondary" style="width:100%;margin-top:8px">使用此模型</button>
+        </div>
+
+        <!-- Custom OpenAI-compatible API -->
+        <div id="custom-form" class="custom-api-form hidden">
+          <input type="text" id="custom-base-url" placeholder="Base URL（如 https://api.openai.com）" autocomplete="off">
+          <input type="text" id="custom-model-name" placeholder="模型名（如 gpt-4o）" autocomplete="off">
+          <div class="input-row">
+            <input type="password" id="custom-api-key" placeholder="API Key" autocomplete="off">
+            <button id="btn-toggle-custom-key" class="btn-icon" title="显示/隐藏">👁</button>
+          </div>
+          <button id="btn-use-custom" class="btn-secondary" style="width:100%;margin-top:8px">使用此模型</button>
+        </div>
+      </div>
+
+      <button id="btn-confirm-key" class="btn-primary">进入游戏厅</button>
+      <p id="key-error" class="error-text hidden"></p>
+    </div>
+  </section>
+
+  <!-- Screen 2: Game Hall -->
+  <section id="screen-mode" class="screen">
+    <div class="container hall-container">
+
+      <!-- Step 1: Select Game -->
+      <div id="hall-game-select">
+        <h2 class="hall-title">选择游戏</h2>
+        <div class="game-grid">
+          <div class="game-card" data-game="history">
+            <div class="game-card-icon">🏛️</div>
+            <h3>猜历史人物</h3>
+            <p class="game-card-desc">AI 选人物给线索让你猜，或你想好人物让 AI 猜</p>
+            <span class="game-card-tag">知识推理</span>
+          </div>
+          <div class="game-card" data-game="turtle">
+            <div class="game-card-icon">🍲</div>
+            <h3>海龟汤</h3>
+            <p class="game-card-desc">通过是/否问题推理，揭开看似不合理的谜题真相</p>
+            <span class="game-card-tag">水平思考</span>
+          </div>
+        </div>
+        <button id="btn-back-welcome" class="btn-back" style="margin-top:20px">← 返回</button>
+      </div>
+
+      <!-- Step 2: Select Mode + Difficulty (hidden by default) -->
+      <div id="hall-mode-select" class="hidden">
+        <button id="btn-back-to-games" class="btn-back">← 返回游戏列表</button>
+        <div id="hall-mode-header" class="hall-mode-header"></div>
+        <div id="hall-mode-cards" class="mode-cards"></div>
+        <div id="hall-difficulty" class="hidden">
+          <h3>选择难度</h3>
+          <div id="hall-difficulty-buttons" class="difficulty-buttons"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Screen 3: AI Hosts Game -->
+  <section id="screen-game-host" class="screen">
+    <div class="host-layout">
+      <!-- Left: Stats + Actions + Clues + Portrait -->
+      <aside class="host-sidebar">
+        <div class="sidebar-title">🎯 AI 出题 <span id="host-difficulty-badge" class="badge"></span></div>
+
+        <!-- Stats row: all in one line -->
+        <div class="host-stats-row">
+          <span class="stat-chip">❓提问 <strong id="host-questions-count">0</strong></span>
+          <span class="stat-chip">📜线索 <strong id="host-hints-count">0/8</strong></span>
+          <span class="stat-chip">🎲盲猜 <strong id="host-blind-left">0</strong></span>
+        </div>
+
+        <!-- Action buttons row -->
+        <div class="host-action-row">
+          <button id="btn-host-hint" class="btn-secondary btn-sm">📜提示</button>
+          <button id="btn-host-blind" class="btn-secondary btn-sm host-blind-btn">🎲盲猜</button>
+          <button id="btn-host-restart" class="btn-secondary btn-sm">🔄重来</button>
+          <button id="btn-host-giveup" class="btn-danger btn-sm">放弃</button>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-heading">📜 已揭示线索</div>
+          <div id="host-hints-area">
+            <div id="host-hints-empty" class="panel-empty">暂无线索</div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-heading">📋 人物画像</div>
+          <ul id="host-portrait" class="known-list"></ul>
+          <div id="host-portrait-empty" class="panel-empty">通过提问获取信息</div>
+        </div>
+      </aside>
+
+      <!-- Right: Chat -->
+      <main class="host-main">
+        <div class="host-chat-header">
+          <span class="host-chat-rule">AI 只能回答：<strong>是 / 否 / 是也不是 / 正史无记载</strong></span>
+        </div>
+        <div id="host-chat-area" class="chat-area">
+          <!-- Chat messages -->
+        </div>
+
+        <div id="host-loading" class="loading hidden">
+          <div class="spinner"></div>
+          <span>AI 思考中...</span>
+        </div>
+
+        <div id="host-input-area" class="input-area">
+          <input type="text" id="host-input" placeholder="输入提问或猜测" autocomplete="off">
+          <button id="btn-host-send" class="btn-primary">发送</button>
+        </div>
+        <!-- Blind guess area (inline, hidden by default) -->
+        <div id="host-blind-area" class="input-area hidden">
+          <input type="text" id="host-blind-input" placeholder="输入你盲猜的人物名字" autocomplete="off">
+          <button id="btn-host-blind-submit" class="btn-primary">确认盲猜</button>
+          <button id="btn-host-blind-cancel" class="btn-secondary">取消</button>
+        </div>
+        <div id="host-review-area" class="input-area hidden">
+          <input type="text" id="host-review-input" placeholder="和 AI 继续讨论..." autocomplete="off">
+          <button id="btn-host-review-send" class="btn-primary">发送</button>
+          <button id="btn-host-end-review" class="btn-secondary">结束复盘 →</button>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- Screen 4: AI Guesses Game -->
+  <section id="screen-game-guess" class="screen">
+    <div class="guess-layout">
+      <!-- Left: Portrait/Reasoning Panel -->
+      <aside class="guess-sidebar">
+        <div class="sidebar-title">🤔 AI 来猜</div>
+        <div class="sidebar-stats">
+          <div class="stat-row">
+            <span>❓ 提问</span>
+            <strong id="guess-questions-count">0</strong><span>/20</span>
+          </div>
+          <div class="stat-row">
+            <span>🎯 猜测剩余</span>
+            <strong id="guess-guesses-left">3</strong>
+          </div>
+          <div class="stat-row">
+            <span>📊 信心</span>
+            <div class="confidence-bar"><div id="confidence-fill" class="confidence-fill"></div></div>
+            <strong id="guess-confidence">0</strong><span>%</span>
+          </div>
+        </div>
+
+        <div class="portrait-panel">
+          <div class="portrait-label">📋 人物画像</div>
+          <div class="panel-section">
+            <div class="panel-heading">已知信息</div>
+            <ul id="panel-known" class="known-list"></ul>
+            <div id="panel-known-empty" class="panel-empty">暂无信息</div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-heading">候选方向</div>
+            <div id="panel-candidates" class="candidates-list">
+              <div class="panel-empty">尚无方向</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right: Chat -->
+      <main class="guess-main">
+        <div id="guess-chat-area" class="chat-area">
+          <div class="msg-system">请心中想好一个历史人物（真实存在、有史料记载），然后点击下方"准备好了"。</div>
+        </div>
+
+        <div id="guess-loading" class="loading hidden">
+          <div class="spinner"></div>
+          <span>AI 思考中...</span>
+        </div>
+
+        <div id="guess-answer-area" class="answer-area">
+          <button id="btn-ready" class="btn-primary">准备好了 / Ready</button>
+        </div>
+        <div id="guess-response-area" class="answer-area hidden">
+          <button class="btn-answer" data-answer="是">✅ 是</button>
+          <button class="btn-answer" data-answer="否">❌ 否</button>
+          <button class="btn-answer" data-answer="是也不是">↔️ 是也不是</button>
+          <button class="btn-answer" data-answer="正史无记载">📚 正史无记载</button>
+          <button class="btn-answer" data-answer="我不知道">🤷 我不知道</button>
+        </div>
+        <div id="guess-confirm-area" class="answer-area hidden">
+          <p id="guess-confirm-text"></p>
+          <button id="btn-guess-correct" class="btn-primary">猜对了 ✅</button>
+          <button id="btn-guess-wrong" class="btn-danger">猜错了 ❌</button>
+        </div>
+        <!-- Player hint area (shown at Q15) -->
+        <div id="guess-hint-area" class="answer-area hidden" style="flex-direction:column;align-items:stretch;gap:10px">
+          <p style="text-align:center;color:var(--brown);font-size:0.95rem">💡 给 AI 一条提示，帮助它推理（也可以拒绝）</p>
+          <div class="input-area">
+            <input type="text" id="guess-hint-input" placeholder="输入提示，如「此人是一位诗人」" autocomplete="off">
+            <button id="btn-guess-hint-send" class="btn-primary">发送提示</button>
+          </div>
+          <button id="btn-guess-hint-refuse" class="btn-secondary" style="align-self:center">不给提示，继续</button>
+        </div>
+        <!-- Reroll answer area -->
+        <div id="guess-reroll-area" class="answer-area hidden" style="flex-direction:column;align-items:stretch;gap:10px">
+          <p style="text-align:center;color:var(--brown);font-size:0.95rem">✏️ 选择要纠错的问题，输入新的回答（不占次数）</p>
+          <select id="guess-reroll-select" style="padding:8px;border-radius:6px;border:1.5px solid var(--border);font-family:var(--font-serif);font-size:0.9rem"></select>
+          <div class="input-area">
+            <select id="guess-reroll-new-answer" style="padding:8px;border-radius:6px;border:1.5px solid var(--border);font-family:var(--font-serif)">
+              <option value="是">✅ 是</option>
+              <option value="否">❌ 否</option>
+              <option value="是也不是">↔️ 是也不是</option>
+              <option value="正史无记载">📚 正史无记载</option>
+            </select>
+            <button id="btn-guess-reroll-confirm" class="btn-primary">确认纠错</button>
+            <button id="btn-guess-reroll-cancel" class="btn-secondary">取消</button>
+          </div>
+        </div>
+        <!-- Always-visible input area -->
+        <div id="guess-input-area" class="input-area hidden">
+          <input type="text" id="guess-input" placeholder="输入你想说的话..." autocomplete="off">
+          <button id="btn-guess-send" class="btn-primary">发送</button>
+          <div class="input-btn-stack">
+            <button id="btn-guess-reroll" class="btn-secondary">✏️ 纠错</button>
+            <button id="btn-guess-restart" class="btn-secondary">🔄 重来</button>
+          </div>
+        </div>
+        <div id="guess-review-area" class="input-area hidden">
+          <input type="text" id="guess-review-input" placeholder="和 AI 继续讨论..." autocomplete="off">
+          <button id="btn-guess-review-send" class="btn-primary">发送</button>
+          <button id="btn-end-review" class="btn-secondary">结束复盘 →</button>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- Screen 5a: Turtle Soup - AI Hosts -->
+  <section id="screen-turtle-host" class="screen">
+    <div class="turtle-host-layout">
+      <!-- Left: Surface + Known Info -->
+      <aside class="turtle-host-sidebar">
+        <div class="sidebar-title">🍲 海龟汤 · AI出题 <span id="turtle-host-badge" class="badge"></span></div>
+        <div class="sidebar-stats">
+          <div class="stat-row">
+            <span>❓ 提问</span>
+            <strong id="turtle-host-questions">0</strong><span>/30</span>
+          </div>
+          <div class="stat-row">
+            <span>💡 提示</span>
+            <strong id="turtle-host-hints">0</strong><span>/4</span>
+          </div>
+          <div class="stat-row">
+            <span>🔮 猜测</span>
+            <strong id="turtle-host-guesses">0</strong>
+          </div>
+        </div>
+
+        <div id="turtle-host-surface-box" class="surface-box hidden" style="margin-bottom:12px">
+          <div class="surface-label">🍜 汤面</div>
+          <div id="turtle-host-surface"></div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-heading">已知信息</div>
+          <ul id="turtle-host-known" class="known-list"></ul>
+          <div id="turtle-host-known-empty" class="panel-empty">暂无信息，开始提问吧</div>
+        </div>
+
+        <div id="turtle-host-hints-revealed" class="panel-section hidden">
+          <div class="panel-heading">获得的提示</div>
+          <ul id="turtle-host-hints-list" class="known-list"></ul>
+        </div>
+      </aside>
+
+      <!-- Right: Chat -->
+      <main class="turtle-host-main">
+        <div id="turtle-host-chat" class="chat-area"></div>
+
+        <div id="turtle-host-loading" class="loading hidden">
+          <div class="spinner"></div>
+          <span>AI 思考中...</span>
+        </div>
+
+        <div id="turtle-host-input-area" class="input-area hidden">
+          <input type="text" id="turtle-host-input" placeholder="输入你的问题（是/否问题）" autocomplete="off">
+          <button id="btn-turtle-host-send" class="btn-primary btn-sm">发送</button>
+          <button id="btn-turtle-host-guess" class="btn-secondary btn-sm">🔮猜真相</button>
+          <button id="btn-turtle-host-hint" class="btn-secondary btn-sm">💡提示</button>
+          <button id="btn-turtle-host-restart" class="btn-secondary btn-sm">🔄重来</button>
+          <button id="btn-turtle-host-giveup" class="btn-danger btn-sm">放弃</button>
+        </div>
+        <div id="turtle-host-guess-area" class="input-area hidden">
+          <input type="text" id="turtle-host-guess-input" placeholder="输入你对汤底的完整猜测..." autocomplete="off">
+          <button id="btn-turtle-host-submit-guess" class="btn-primary btn-sm">提交</button>
+          <button id="btn-turtle-host-cancel-guess" class="btn-secondary btn-sm">取消</button>
+        </div>
+        <div id="turtle-host-review-area" class="input-area hidden">
+          <input type="text" id="turtle-host-review-input" placeholder="和 AI 继续讨论..." autocomplete="off">
+          <button id="btn-turtle-host-review-send" class="btn-primary btn-sm">发送</button>
+          <button id="btn-turtle-host-end-review" class="btn-secondary btn-sm">结束复盘 →</button>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- Screen 5b: Turtle Soup - AI Guesses -->
+  <section id="screen-turtle-guess" class="screen">
+    <div class="guess-layout">
+      <aside class="guess-sidebar">
+        <div class="sidebar-title">🍲 海龟汤 · AI猜</div>
+        <div class="sidebar-stats">
+          <div class="stat-row">
+            <span>❓ 提问</span>
+            <strong id="turtle-guess-questions">0</strong><span>/20</span>
+          </div>
+          <div class="stat-row">
+            <span>🎯 猜测剩余</span>
+            <strong id="turtle-guess-guesses-left">3</strong>
+          </div>
+          <div class="stat-row">
+            <span>📊 信心</span>
+            <div class="confidence-bar"><div id="turtle-confidence-fill" class="confidence-fill"></div></div>
+            <strong id="turtle-guess-confidence">0</strong><span>%</span>
+          </div>
+        </div>
+
+        <div id="turtle-guess-surface-box" class="surface-box hidden" style="margin-bottom:12px">
+          <div class="surface-label">🍜 汤面 / Surface</div>
+          <div id="turtle-guess-surface-display" style="font-size:0.9rem"></div>
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-heading">已确认</div>
+          <ul id="turtle-guess-confirmed" class="known-list"></ul>
+          <div id="turtle-guess-confirmed-empty" class="panel-empty">暂无信息</div>
+        </div>
+        <div class="panel-section">
+          <div class="panel-heading">已排除</div>
+          <ul id="turtle-guess-ruledout" class="known-list"></ul>
+          <div id="turtle-guess-ruledout-empty" class="panel-empty">暂无</div>
+        </div>
+        <div class="panel-section">
+          <div class="panel-heading">关键推理</div>
+          <ul id="turtle-guess-insights" class="insight-list"></ul>
+          <div id="turtle-guess-insights-empty" class="panel-empty">暂无</div>
+        </div>
+      </aside>
+
+      <main class="guess-main">
+        <div id="turtle-guess-chat" class="chat-area"></div>
+
+        <div id="turtle-guess-loading" class="loading hidden">
+          <div class="spinner"></div>
+          <span>AI 思考中...</span>
+        </div>
+
+        <div id="turtle-guess-setup" class="surface-input-area">
+          <p style="margin-bottom:12px;color:#666">请输入你的海龟汤汤面（一段看似不合理的场景描述）：</p>
+          <textarea id="turtle-guess-surface-input" placeholder="例如：一个男人走进餐厅点了一碗海龟汤，喝完后回家自杀了。为什么？"></textarea>
+          <button id="btn-turtle-guess-submit-surface" class="btn-primary" style="margin-top:12px">开始游戏</button>
+        </div>
+
+        <div id="turtle-guess-response-area" class="answer-area hidden">
+          <button class="btn-turtle-answer" data-tanswer="是">✅ 是</button>
+          <button class="btn-turtle-answer" data-tanswer="否">❌ 否</button>
+          <button class="btn-turtle-answer" data-tanswer="无关">🤷 无关</button>
+        </div>
+        <div id="turtle-guess-input-area" class="input-area hidden">
+          <input type="text" id="turtle-guess-input" placeholder="或者输入你想说的话..." autocomplete="off">
+          <button id="btn-turtle-guess-send" class="btn-primary">发送</button>
+          <button id="btn-turtle-guess-restart" class="btn-secondary">🔄 重来</button>
+        </div>
+        <div id="turtle-guess-confirm-area" class="answer-area hidden">
+          <p id="turtle-guess-confirm-text"></p>
+          <button id="btn-turtle-guess-correct" class="btn-primary">猜对了 ✅</button>
+          <button id="btn-turtle-guess-wrong" class="btn-danger">猜错了 ❌</button>
+        </div>
+        <div id="turtle-guess-review-area" class="input-area hidden">
+          <input type="text" id="turtle-guess-review-input" placeholder="和 AI 继续讨论..." autocomplete="off">
+          <button id="btn-turtle-guess-review-send" class="btn-primary">发送</button>
+          <button id="btn-turtle-guess-end-review" class="btn-secondary">结束复盘 →</button>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- Screen 6: Result -->
+  <section id="screen-result" class="screen">
+    <div class="container">
+      <h2 id="result-title"></h2>
+      <div id="result-figure" class="result-card">
+        <div class="figure-name" id="result-name"></div>
+        <div class="figure-details" id="result-details"></div>
+      </div>
+      <div id="result-stats" class="result-stats"></div>
+      <div id="result-rating" class="result-rating"></div>
+      <div id="result-fun-fact" class="result-fun-fact hidden"></div>
+      <div class="result-actions">
+        <button id="btn-play-again" class="btn-primary">再来一局</button>
+        <button id="btn-switch-mode" class="btn-secondary">换模式</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="js/api.js"></script>
+  <script src="js/game-state.js"></script>
+  <script src="js/prompts.js"></script>
+  <script src="js/turtle-prompts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/ai-host-mode.js"></script>
+  <script src="js/ai-guess-mode.js"></script>
+  <script src="js/turtle-soup.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
