@@ -358,6 +358,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-input-area').classList.add('hidden');
     $('#turtle-guess-response-area').classList.add('hidden');
     $('#turtle-guess-confirm-area').classList.add('hidden');
+    $('#turtle-guess-reroll-area').classList.add('hidden');
     $('#turtle-guess-setup').classList.remove('hidden');
     $('#turtle-guess-surface-input').value = '';
     updateTurtleGuessStats();
@@ -430,6 +431,10 @@ const TurtleGuessMode = {
   async onAnswer(answer) {
     const t = GameState.turtle;
     if (t.gameOver) return;
+
+    if (t.lastQuestion) {
+      t.qaHistory.push({ question: t.lastQuestion, answer: answer });
+    }
 
     addMsg($('#turtle-guess-chat'), answer, 'user');
     t.questionsAsked++;
@@ -504,6 +509,7 @@ const TurtleGuessMode = {
           const display = stripJsonLine(text);
           div.dataset.raw = display;
           div.innerHTML = renderMarkdown(display);
+          GameState.turtle.lastQuestion = display;
         }
       );
       hideLoading('turtle-guess-loading');
@@ -593,6 +599,61 @@ const TurtleGuessMode = {
     $('#turtle-guess-input-area').classList.remove('hidden');
     addMsg($('#turtle-guess-chat'), '你可以告诉 AI 还需要猜哪些信息，或者当前猜测有哪些地方不对。', 'system');
     $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+  },
+
+  showRerollPrompt() {
+    const t = GameState.turtle;
+    if (t.qaHistory.length === 0) {
+      addMsg($('#turtle-guess-chat'), '还没有已回答的问题可以纠错。', 'system');
+      return;
+    }
+
+    const select = $('#turtle-guess-reroll-select');
+    select.innerHTML = t.qaHistory.map((qa, i) => {
+      const qShort = qa.question.length > 25 ? qa.question.slice(0, 25) + '...' : qa.question;
+      return `<option value="${i}">第${i + 1}问：${qShort}（原答：${qa.answer}）</option>`;
+    }).join('');
+
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    $('#turtle-guess-reroll-area').classList.remove('hidden');
+    $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+  },
+
+  async onRerollAnswer() {
+    const t = GameState.turtle;
+    const idx = parseInt($('#turtle-guess-reroll-select').value);
+    const newAnswer = $('#turtle-guess-reroll-new-answer').value;
+
+    if (isNaN(idx) || !newAnswer) return;
+
+    const oldQa = t.qaHistory[idx];
+    if (!oldQa) return;
+
+    $('#turtle-guess-reroll-area').classList.add('hidden');
+
+    const qNum = idx + 1;
+    addMsg($('#turtle-guess-chat'), `纠错：第${qNum}问的回答从「${oldQa.answer}」改为「${newAnswer}」`, 'system');
+
+    t.qaHistory[idx].answer = newAnswer;
+
+    const correctionPrompt = `[纠错] 用户修正了第${qNum}个问题的回答：
+原问题：${oldQa.question}
+原回答：${oldQa.answer}
+新回答：${newAnswer}
+
+请根据修正后的回答重新推理：
+1. 更新 confirmed_facts（已确认事实）
+2. 更新 key_insights（关键推理）
+3. 继续提问`;
+
+    await this.askNext(correctionPrompt);
+  },
+
+  onRerollCancel() {
+    $('#turtle-guess-reroll-area').classList.add('hidden');
+    $('#turtle-guess-response-area').classList.remove('hidden');
+    $('#turtle-guess-input-area').classList.remove('hidden');
   },
 
   async onGuessWrong() {

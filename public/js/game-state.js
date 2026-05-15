@@ -60,7 +60,8 @@ const GameState = {
     keyInsights: [],
     confidence: 0,
     knownInfo: [],
-    lastQuestion: ''
+    lastQuestion: '',
+    qaHistory: []
   },
 
   messages: [],
@@ -87,7 +88,7 @@ const GameState = {
       questionsAsked: 0, guessesUsed: 0,
       gameOver: false, won: false,
       confirmedFacts: [], keyInsights: [], confidence: 0,
-      knownInfo: [], lastQuestion: ''
+      knownInfo: [], lastQuestion: '', qaHistory: []
     };
     this.messages = [];
   },

@@ -796,6 +796,17 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btn-turtle-guess-far').addEventListener('click', () => TurtleGuessMode.onGuessFar());
   $('#btn-turtle-guess-wrong').addEventListener('click', () => TurtleGuessMode.onGuessWrong());
 
+  // Turtle Guess reroll
+  $('#btn-turtle-guess-reroll').addEventListener('click', () => {
+    TurtleGuessMode.showRerollPrompt();
+  });
+  $('#btn-turtle-guess-reroll-confirm').addEventListener('click', () => {
+    TurtleGuessMode.onRerollAnswer();
+  });
+  $('#btn-turtle-guess-reroll-cancel').addEventListener('click', () => {
+    TurtleGuessMode.onRerollCancel();
+  });
+
   // Turtle Guess review
   const turtleGuessReviewInput = $('#turtle-guess-review-input');
   $('#btn-turtle-guess-review-send').addEventListener('click', () => {
