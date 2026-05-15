@@ -219,16 +219,6 @@ function updateTurtleGuessStats() {
     if (confirmedEmpty) confirmedEmpty.style.display = '';
   }
 
-  const ruledOutUl = $('#turtle-guess-ruledout');
-  const ruledOutEmpty = $('#turtle-guess-ruledout-empty');
-  if (t.ruledOut.length > 0) {
-    ruledOutUl.innerHTML = t.ruledOut.map(c => `<li>${c}</li>`).join('');
-    if (ruledOutEmpty) ruledOutEmpty.style.display = 'none';
-  } else {
-    ruledOutUl.innerHTML = '';
-    if (ruledOutEmpty) ruledOutEmpty.style.display = '';
-  }
-
   const insightsUl = $('#turtle-guess-insights');
   const insightsEmpty = $('#turtle-guess-insights-empty');
   if (t.keyInsights.length > 0) {

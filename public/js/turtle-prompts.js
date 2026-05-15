@@ -49,11 +49,12 @@ TURTLE_PROMPTS.hostSystem = `你是一个海龟汤游戏的主持人。你手里
 
 ## 输出格式（必须严格遵守）
 第一行：JSON（不显示给用户）
-{"answer":"是/否/无关"}
+{"answer":"是/否/是也不是/无关"}
 
 第二行：给用户看的回答，只能是以下之一（不要加任何其他内容）：
 - 是
 - 否
+- 是也不是
 - 无关
 
 如果玩家的问题需要澄清才能判断，回答：
@@ -78,8 +79,8 @@ TURTLE_PROMPTS.hostTurn = (surface, truth, hintsRevealed, questionsAsked, maxQue
 
 玩家提问：请判断并回复。
 回复格式：
-第一行JSON：{"answer":"是/否/无关"}
-第二行：只能回复"是"、"否"或"无关"三个字之一，不要任何解释。`;
+第一行JSON：{"answer":"是/否/是也不是/无关"}
+第二行：只能回复"是"、"否"、"是也不是"或"无关"四个字之一，不要任何解释。`;
 };
 
 // === Player Hosts (我出题 AI来猜) ===
@@ -92,6 +93,14 @@ TURTLE_PROMPTS.guessSystem = `你是一个海龟汤游戏的猜测者。玩家�
 - 最多问20个问题
 - 最多正式猜测3次
 - 使用中文交流
+
+## 玩家可能的回答
+- 是：问题正确
+- 否：问题不正确
+- 是也不是：部分正确，问题中的某些因素是原因之一但不是全部
+- 无关：问题与真相无关
+
+当玩家回答"是也不是"时，说明你的问题触及了部分真相，但不是全部。需要进一步细化问题来区分哪些部分是对的，哪些是错的。
 
 ## 提问策略
 1. 先确认基本事实：时间、地点、人物数量、是否涉及生死
@@ -127,15 +136,14 @@ TURTLE_PROMPTS.guessSystem = `你是一个海龟汤游戏的猜测者。玩家�
 
 ## 输出格式
 每次回复的第一行用JSON标记推理状态（不显示给用户）：
-{"confidence":0-100,"confirmed":["已确认事实"],"ruled_out":["已排除事实"],"key_insights":["关键推理"]}
+{"confidence":0-100,"confirmed":["已确认事实"],"key_insights":["关键推理"]}
 第二行开始是给用户看的提问或猜测，问题以序号开头如「1. xxx？」。
 
 key_insights说明：记录你目前最重要的推理线索和假设。`;
 
-TURTLE_PROMPTS.guessTurn = (answer, confirmed, ruledOut, keyInsights, questionsAsked, guessesUsed, confidence) => {
+TURTLE_PROMPTS.guessTurn = (answer, confirmed, keyInsights, questionsAsked, guessesUsed, confidence) => {
   return `[推理状态]
 已确认：${confirmed.join('；') || '暂无'}
-已排除：${ruledOut.join('；') || '暂无'}
 关键推理：${keyInsights.join('；') || '暂无'}
 已提问：${questionsAsked}/20
 下一个问题编号：${questionsAsked + 1}
@@ -198,7 +206,7 @@ TURTLE_PROMPTS.hostReview = (won, puzzle, questionsAsked, hintsRevealed) => {
 
 // === AI Guess Review Phase ===
 
-TURTLE_PROMPTS.guessReview = (won, surface, confirmed, ruledOut, keyInsights, questionsAsked, guessesUsed) => {
+TURTLE_PROMPTS.guessReview = (won, surface, confirmed, keyInsights, questionsAsked, guessesUsed) => {
   if (won) {
     return `游戏结束！你成功推理出了玩家海龟汤的汤底真相。
 
@@ -206,7 +214,6 @@ TURTLE_PROMPTS.guessReview = (won, surface, confirmed, ruledOut, keyInsights, qu
 - 汤面：${surface}
 - 你问了${questionsAsked}个问题，用了${guessesUsed}次正式猜测
 - 已确认的信息：${confirmed.join('；') || '暂无'}
-- 已排除的信息：${ruledOut.join('；') || '暂无'}
 - 关键推理线索：${keyInsights.join('；') || '暂无'}
 
 请向玩家解释：
@@ -222,7 +229,6 @@ TURTLE_PROMPTS.guessReview = (won, surface, confirmed, ruledOut, keyInsights, qu
 - 汤面：${surface}
 - 你问了${questionsAsked}个问题，用了${guessesUsed}次正式猜测
 - 已确认的信息：${confirmed.join('；') || '暂无'}
-- 已排除的信息：${ruledOut.join('；') || '暂无'}
 - 关键推理线索：${keyInsights.join('；') || '暂无'}
 
 请反思：

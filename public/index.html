@@ -384,11 +384,6 @@
           <div id="turtle-guess-confirmed-empty" class="panel-empty">暂无信息</div>
         </div>
         <div class="panel-section">
-          <div class="panel-heading">已排除</div>
-          <ul id="turtle-guess-ruledout" class="known-list"></ul>
-          <div id="turtle-guess-ruledout-empty" class="panel-empty">暂无</div>
-        </div>
-        <div class="panel-section">
           <div class="panel-heading">关键推理</div>
           <ul id="turtle-guess-insights" class="insight-list"></ul>
           <div id="turtle-guess-insights-empty" class="panel-empty">暂无</div>
@@ -412,6 +407,7 @@
         <div id="turtle-guess-response-area" class="answer-area hidden">
           <button class="btn-turtle-answer" data-tanswer="是">✅ 是</button>
           <button class="btn-turtle-answer" data-tanswer="否">❌ 否</button>
+          <button class="btn-turtle-answer" data-tanswer="是也不是">↔️ 是也不是</button>
           <button class="btn-turtle-answer" data-tanswer="无关">🤷 无关</button>
         </div>
         <div id="turtle-guess-input-area" class="input-area hidden">
@@ -421,8 +417,10 @@
         </div>
         <div id="turtle-guess-confirm-area" class="answer-area hidden">
           <p id="turtle-guess-confirm-text"></p>
-          <button id="btn-turtle-guess-correct" class="btn-primary">猜对了 ✅</button>
-          <button id="btn-turtle-guess-wrong" class="btn-danger">猜错了 ❌</button>
+          <button id="btn-turtle-guess-correct" class="btn-primary">✅ 猜对了</button>
+          <button id="btn-turtle-guess-close" class="btn-secondary" style="border-color:#ff9800;color:#e65100">🔶 很接近了</button>
+          <button id="btn-turtle-guess-far" class="btn-secondary" style="border-color:#f44336;color:#c62828">🔴 还差很多</button>
+          <button id="btn-turtle-guess-wrong" class="btn-danger">❌ 完全不对</button>
         </div>
         <div id="turtle-guess-review-area" class="input-area hidden">
           <input type="text" id="turtle-guess-review-input" placeholder="和 AI 继续讨论..." autocomplete="off">

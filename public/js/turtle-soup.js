@@ -205,7 +205,7 @@ const TurtleHostMode = {
       try {
         const json = JSON.parse(firstLine);
         const answer = json.answer;
-        if (answer && ['是', '否', '无关'].includes(answer)) {
+        if (answer && ['是', '否', '是也不是', '无关'].includes(answer)) {
           t.knownInfo.push({ question, answer });
           this.updateKnownInfoPanel();
         }
@@ -220,7 +220,7 @@ const TurtleHostMode = {
 
     if (t.knownInfo.length > 0) {
       ul.innerHTML = t.knownInfo.map(info => {
-        const icon = info.answer === '是' ? '✅' : info.answer === '否' ? '❌' : '🤷';
+        const icon = info.answer === '是' ? '✅' : info.answer === '否' ? '❌' : info.answer === '是也不是' ? '↔️' : '🤷';
         const qShort = info.question.length > 30 ? info.question.slice(0, 30) + '...' : info.question;
         return `<li><span class="known-cat">${icon} ${info.answer}</span>${qShort}</li>`;
       }).join('');
@@ -394,7 +394,6 @@ const TurtleGuessMode = {
     const prompt = TURTLE_PROMPTS.guessTurn(
       answer,
       t.confirmed,
-      t.ruledOut,
       t.keyInsights,
       t.questionsAsked,
       t.guessesUsed,
@@ -512,13 +511,13 @@ const TurtleGuessMode = {
     await this.startReview(true);
   },
 
-  async onGuessWrong() {
+  async onGuessClose() {
     const t = GameState.turtle;
     t.guessesUsed++;
     updateTurtleGuessStats();
 
     $('#turtle-guess-confirm-area').classList.add('hidden');
-    addMsg($('#turtle-guess-chat'), '猜错了！', 'user');
+    addMsg($('#turtle-guess-chat'), '🔶 很接近了，但还差一些。', 'user');
 
     if (t.guessesUsed >= 3) {
       t.gameOver = true;
@@ -527,17 +526,43 @@ const TurtleGuessMode = {
       return;
     }
 
-    // Continue asking
-    const prompt = TURTLE_PROMPTS.guessTurn(
-      '猜错了，不是这个真相。',
-      t.confirmed,
-      t.ruledOut,
-      t.keyInsights,
-      t.questionsAsked,
-      t.guessesUsed,
-      t.confidence
-    );
-    await this.askNext(prompt);
+    // Show free input to let player provide feedback
+    $('#turtle-guess-input-area').classList.remove('hidden');
+    addMsg($('#turtle-guess-chat'), '你可以告诉 AI 还需要猜哪些信息，或者当前猜测有哪些地方不对。', 'system');
+    $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+  },
+
+  async onGuessFar() {
+    const t = GameState.turtle;
+    t.guessesUsed++;
+    updateTurtleGuessStats();
+
+    $('#turtle-guess-confirm-area').classList.add('hidden');
+    addMsg($('#turtle-guess-chat'), '🔴 还差很多。', 'user');
+
+    if (t.guessesUsed >= 3) {
+      t.gameOver = true;
+      addMsg($('#turtle-guess-chat'), 'AI 用完了所有猜测次数，进入复盘阶段...', 'system');
+      await this.startReview(false);
+      return;
+    }
+
+    // Show free input to let player provide feedback
+    $('#turtle-guess-input-area').classList.remove('hidden');
+    addMsg($('#turtle-guess-chat'), '你可以告诉 AI 还需要猜哪些信息，或者当前猜测有哪些地方不对。', 'system');
+    $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
+  },
+
+  async onGuessWrong() {
+    const t = GameState.turtle;
+    t.guessesUsed++;
+    t.gameOver = true;
+    updateTurtleGuessStats();
+
+    $('#turtle-guess-confirm-area').classList.add('hidden');
+    addMsg($('#turtle-guess-chat'), '❌ 完全不对！AI 被判负。', 'user');
+
+    await this.startReview(false);
   },
 
   // --- Review ---
@@ -555,7 +580,7 @@ const TurtleGuessMode = {
     $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
 
     const reviewPrompt = TURTLE_PROMPTS.guessReview(
-      won, t.surface, t.confirmed, t.ruledOut,
+      won, t.surface, t.confirmed,
       t.keyInsights, t.questionsAsked, t.guessesUsed
     );
 

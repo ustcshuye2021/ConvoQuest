@@ -1477,7 +1477,7 @@ body {
 #screen-turtle-guess .guess-layout {
   display: flex;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1200px;
   height: 100vh;
   margin: 0 auto;
   background: var(--cream);
@@ -1487,8 +1487,8 @@ body {
 }
 
 #screen-turtle-guess .guess-sidebar {
-  width: 280px;
-  min-width: 260px;
+  width: 360px;
+  min-width: 340px;
   padding: 16px;
   background: var(--parchment);
   border-right: 2px solid var(--border);
@@ -1567,6 +1567,35 @@ body {
   }
   #screen-turtle-guess .guess-main { padding: 12px; }
   #screen-turtle-guess .guess-main .chat-area { min-height: 200px; max-height: 300px; }
+}
+
+/* Turtle guess answer buttons - larger */
+.btn-turtle-answer {
+  padding: 14px 24px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  font-size: 1.1rem;
+  font-family: var(--font-serif);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+  font-weight: 500;
+}
+.btn-turtle-answer:hover {
+  border-color: var(--gold);
+  background: var(--parchment);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+/* Turtle guess confirm buttons */
+#turtle-guess-confirm-area .btn-primary,
+#turtle-guess-confirm-area .btn-secondary,
+#turtle-guess-confirm-area .btn-danger {
+  padding: 12px 20px;
+  font-size: 1rem;
+  min-width: 130px;
 }
 
 /* === Settings Panel === */

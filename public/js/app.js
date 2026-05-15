@@ -792,6 +792,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   $('#btn-turtle-guess-correct').addEventListener('click', () => TurtleGuessMode.onGuessCorrect());
+  $('#btn-turtle-guess-close').addEventListener('click', () => TurtleGuessMode.onGuessClose());
+  $('#btn-turtle-guess-far').addEventListener('click', () => TurtleGuessMode.onGuessFar());
   $('#btn-turtle-guess-wrong').addEventListener('click', () => TurtleGuessMode.onGuessWrong());
 
   // Turtle Guess review
