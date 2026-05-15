@@ -689,6 +689,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirm('确定重新开始吗？当前进度将丢失。')) resetToGameHall();
   });
 
+  $('#btn-guess-force').addEventListener('click', () => {
+    if (!GameState.guess.gameOver) AIGuessMode.onForceGuess();
+  });
+
   $('#btn-guess-correct').addEventListener('click', () => AIGuessMode.onGuessCorrect());
   $('#btn-guess-wrong').addEventListener('click', () => AIGuessMode.onGuessWrong());
 
@@ -802,6 +806,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('#btn-turtle-guess-restart').addEventListener('click', () => {
     if (confirm('确定重新开始吗？当前进度将丢失。')) resetToGameHall();
+  });
+
+  $('#btn-turtle-guess-force').addEventListener('click', () => {
+    if (!GameState.turtle.gameOver) TurtleGuessMode.onForceGuess();
   });
 
   $('#btn-turtle-guess-correct').addEventListener('click', () => TurtleGuessMode.onGuessCorrect());

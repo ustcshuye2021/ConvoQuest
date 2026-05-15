@@ -611,6 +611,32 @@ const TurtleGuessMode = {
     await this.askNext(prompt);
   },
 
+  async onForceGuess() {
+    const t = GameState.turtle;
+    if (t.gameOver) return;
+    if (t.guessesUsed >= t.maxGuesses) {
+      addMsg($('#turtle-guess-chat'), 'AI 已经用完了所有猜测次数。', 'system');
+      return;
+    }
+
+    $('#turtle-guess-response-area').classList.add('hidden');
+    $('#turtle-guess-input-area').classList.add('hidden');
+    addMsg($('#turtle-guess-chat'), '🎯 玩家要求 AI 立即猜测！', 'system');
+
+    const prompt = `⚠️ 玩家要求你立即发起正式猜测！不要再提问了，必须现在就猜。
+
+已知信息（最小并集）：${t.confirmedFacts.join('；') || '暂无'}
+关键推理：${t.keyInsights.join('；') || '暂无'}
+已提问：${t.questionsAsked}个问题
+已猜测：${t.guessesUsed}次（共${t.maxGuesses}次）
+
+请发起正式猜测，格式：
+🎯 正式猜测 #${t.guessesUsed + 1}/${t.maxGuesses}: {完整描述你认为的汤底真相}
+你觉得我猜对了吗？`;
+
+    await this.askNext(prompt);
+  },
+
   async askNext(userContent) {
     this._lastPrompt = userContent;
 

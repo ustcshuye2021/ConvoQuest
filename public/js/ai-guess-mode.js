@@ -181,6 +181,29 @@ const AIGuessMode = {
     await this.askNext(prompt);
   },
 
+  async onForceGuess() {
+    const g = GameState.guess;
+    if (g.gameOver) return;
+    if (g.guessesUsed >= 3) {
+      addMsg($('#guess-chat-area'), 'AI 已经用完了所有猜测次数。', 'system');
+      return;
+    }
+
+    this._setThinking(true);
+    addMsg($('#guess-chat-area'), '🎯 玩家要求 AI 立即猜测！', 'system');
+
+    const prompt = `⚠️ 玩家要求你立即发起正式猜测！不要再提问了，必须现在就猜。
+
+已知信息（最小并集）：${g.confirmedFacts.join('；') || '暂无'}
+候选：${g.topCandidates.join('、') || '暂无'}
+画像：${Object.entries(g.portrait).map(([k, v]) => `${k}: ${v}`).join('；') || '暂无'}
+
+请发起正式猜测，格式：
+🎯 正式猜测 #${g.guessesUsed + 1}/3: 我认为这是【名称】。我猜对了吗？`;
+
+    await this.askNext(prompt);
+  },
+
   // --- Player Hint ---
 
   async onPlayerHint(text) {
