@@ -184,7 +184,11 @@ function updatePanel() {
 }
 
 function addRegenerateButton(msgDiv, retryFn) {
-  document.querySelectorAll('.btn-regenerate').forEach(b => b.remove());
+  document.querySelectorAll('.btn-regenerate').forEach(b => {
+    const row = b.closest('.msg-ai-row');
+    if (row) row.replaceWith(...row.childNodes);
+    b.remove();
+  });
   if (!msgDiv || !retryFn) return;
 
   const btn = document.createElement('button');
@@ -192,7 +196,12 @@ function addRegenerateButton(msgDiv, retryFn) {
   btn.textContent = '🔄';
   btn.title = '重新生成';
   btn.onclick = retryFn;
-  msgDiv.appendChild(btn);
+
+  const row = document.createElement('div');
+  row.className = 'msg-ai-row';
+  msgDiv.parentNode.insertBefore(row, msgDiv);
+  row.appendChild(msgDiv);
+  row.appendChild(btn);
 }
 
 function showLoading(id) { document.getElementById(id)?.classList.remove('hidden'); }
@@ -203,8 +212,11 @@ function cleanupFailedAIResponse(chatArea) {
   while (children.length > 0 && children[children.length - 1].classList.contains('msg-error')) {
     children[children.length - 1].remove();
   }
-  if (children.length > 0 && children[children.length - 1].classList.contains('msg-ai')) {
-    children[children.length - 1].remove();
+  if (children.length > 0) {
+    const last = children[children.length - 1];
+    if (last.classList.contains('msg-ai-row') || last.classList.contains('msg-ai')) {
+      last.remove();
+    }
   }
 }
 
