@@ -55,14 +55,20 @@ app.post('/api/chat', async (req, res) => {
   console.log(`[${model}] ${stream ? 'stream' : 'full'} → ${url}`);
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+
     const fetchResp = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({ model, messages, stream })
+      body: JSON.stringify({ model, messages, stream }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
 
     if (!fetchResp.ok) {
       const errBody = await fetchResp.text();
