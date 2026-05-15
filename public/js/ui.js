@@ -189,7 +189,7 @@ function addRegenerateButton(msgDiv, retryFn) {
     if (row) row.replaceWith(...row.childNodes);
     b.remove();
   });
-  if (!msgDiv || !retryFn) return;
+  if (!msgDiv || !retryFn || !msgDiv.parentNode) return;
 
   const btn = document.createElement('button');
   btn.className = 'btn-regenerate';
