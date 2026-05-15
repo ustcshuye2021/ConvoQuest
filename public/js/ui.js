@@ -183,6 +183,18 @@ function updatePanel() {
   }
 }
 
+function addRegenerateButton(msgDiv, retryFn) {
+  document.querySelectorAll('.btn-regenerate').forEach(b => b.remove());
+  if (!msgDiv || !retryFn) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-regenerate';
+  btn.textContent = '🔄';
+  btn.title = '重新生成';
+  btn.onclick = retryFn;
+  msgDiv.appendChild(btn);
+}
+
 function showLoading(id) { document.getElementById(id)?.classList.remove('hidden'); }
 function hideLoading(id) { document.getElementById(id)?.classList.add('hidden'); }
 

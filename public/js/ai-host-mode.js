@@ -438,6 +438,18 @@ const AIHostMode = {
         (text) => { GameState.messages.push({ role: 'assistant', content: text }); }
       );
       hideLoading('host-loading');
+      const retryText = trimmed;
+      addRegenerateButton(div, () => {
+        const chatArea = $('#host-chat-area');
+        cleanupFailedAIResponse(chatArea);
+        const children = chatArea.children;
+        if (children.length > 0 && children[children.length - 1].classList.contains('msg-user')) {
+          children[children.length - 1].remove();
+        }
+        if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') GameState.messages.pop();
+        if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'user') GameState.messages.pop();
+        AIHostMode.handleReviewInput(retryText);
+      });
     } catch (err) {
       hideLoading('host-loading');
       addMsg($('#host-chat-area'), '回复出错: ' + err.message, 'system');

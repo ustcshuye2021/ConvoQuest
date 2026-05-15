@@ -331,6 +331,7 @@ const AIGuessMode = {
         }
       );
       hideLoading('guess-loading');
+      addRegenerateButton(div, () => AIGuessMode.retry());
 
       const displayText = stripJsonMetadata(fullText);
       const isGuess = displayText.includes('正式猜测') || displayText.includes('🎯');
@@ -489,6 +490,18 @@ const AIGuessMode = {
         (text) => { GameState.messages.push({ role: 'assistant', content: text }); }
       );
       hideLoading('guess-loading');
+      const retryText = trimmed;
+      addRegenerateButton(div, () => {
+        const chatArea = $('#guess-chat-area');
+        cleanupFailedAIResponse(chatArea);
+        const children = chatArea.children;
+        if (children.length > 0 && children[children.length - 1].classList.contains('msg-user')) {
+          children[children.length - 1].remove();
+        }
+        if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') GameState.messages.pop();
+        if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'user') GameState.messages.pop();
+        AIGuessMode.handleReviewInput(retryText);
+      });
     } catch (err) {
       hideLoading('guess-loading');
       addMsg($('#guess-chat-area'), '回复出错: ' + err.message, 'system');

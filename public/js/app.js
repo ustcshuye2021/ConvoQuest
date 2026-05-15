@@ -832,11 +832,8 @@ document.addEventListener('DOMContentLoaded', () => {
     TurtleGuessMode.submitHintAndContinue('');
   });
 
-  // Retry buttons
-  $('#btn-host-retry').addEventListener('click', () => AIHostMode.retry());
-  $('#btn-guess-retry').addEventListener('click', () => AIGuessMode.retry());
-  $('#btn-turtle-host-retry').addEventListener('click', () => TurtleHostMode.retry());
-  $('#btn-turtle-guess-retry').addEventListener('click', () => TurtleGuessMode.retry());
+  // Retry buttons (via regenerate button on AI messages)
+  // AI Host mode uses chatFull, retry handled by addRetryButton on error
 
   // Turtle Guess review
   const turtleGuessReviewInput = $('#turtle-guess-review-input');
@@ -864,4 +861,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   $('#btn-switch-mode').addEventListener('click', resetToGameHall);
+
+  // Panel toggle (collapse/expand sidebar sections)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.panel-toggle');
+    if (!btn) return;
+    const section = btn.closest('.panel-section');
+    if (!section) return;
+    section.classList.toggle('collapsed');
+    btn.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
+  });
 });
