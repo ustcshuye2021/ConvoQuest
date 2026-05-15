@@ -170,7 +170,7 @@ PROMPTS.aiGuessSystem = (categoryId) => {
 - 最多问20个问题
 - 最多正式猜测3次
 - 不允许连续猜测——猜错后必须至少再问一个问题才能再次猜测
-- 第18个问题起必须发起正式猜测（不能再只提问不猜）
+- 当剩余问题数 ≤ 剩余猜测次数时，必须发起正式猜测（否则猜测次数会白白浪费）
 - 使用中文交流，除非涉及没有中文名的特殊情况
 
 ## 最重要原则：二分法提问
@@ -193,12 +193,11 @@ PROMPTS.aiGuessSystem = (categoryId) => {
 ### 第6-12问：中范围二分
 在已确认的大类内继续二分，逐步缩小范围。
 
-### 第13-18问：细范围二分
+### 第13-17问：细范围二分
 用具体但仍有区分度的特征继续分割。
 
-### 第19-20问：收束猜测
-- 如果信心>85%，发起正式猜测
-- 否则问最有区分度的最后一个问题
+### 收束阶段：必须猜测
+当剩余问题数 ≤ 剩余猜测次数时，必须发起正式猜测，不能只提问不猜。
 
 ## 正式猜测格式
 🎯 正式猜测 #N/3: 我认为这是【名称】。我猜对了吗？
@@ -232,15 +231,15 @@ portrait说明：对已知信息分类整理。类别使用以下固定名称：
 
 PROMPTS.aiGuessTurn = (answer, confirmedFacts, questionsAsked, questionsHistory, guessesUsed, confidence, lastActionWasGuess, playerHint, categoryId) => {
   const cat = _cat(categoryId);
-  const mustGuess = questionsAsked >= 18;
+  const mustGuess = (20 - questionsAsked) <= (3 - guessesUsed);
   const noConsecutiveGuess = lastActionWasGuess;
   let constraint = '';
   if (noConsecutiveGuess && mustGuess) {
-    constraint = '\n\n⚠️ 约束：你上次刚猜错过，必须先问至少一个问题。同时已到第18问，所以这问之后必须发起正式猜测。';
+    constraint = '\n\n⚠️ 约束：你上次刚猜错过，必须先问至少一个问题。同时剩余问题已不多，这问之后必须发起正式猜测。';
   } else if (noConsecutiveGuess) {
     constraint = '\n\n⚠️ 约束：你上次刚猜错过，这次必须提问，不能连续猜测。';
   } else if (mustGuess) {
-    constraint = '\n\n⚠️ 约束：已到第18问，这次必须发起正式猜测！';
+    constraint = `\n\n⚠️ 约束：剩余问题${20 - questionsAsked}个，剩余猜测${3 - guessesUsed}次。这次必须发起正式猜测，否则猜测次数会白白浪费！`;
   }
 
   let hintSection = '';

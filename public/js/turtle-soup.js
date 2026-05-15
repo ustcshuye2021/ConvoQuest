@@ -244,7 +244,7 @@ const TurtleHostMode = {
       try {
         const json = JSON.parse(firstLine);
         const answer = json.answer;
-        if (answer && ['是', '否', '是也不是', '无关'].includes(answer)) {
+        if (answer && ['是', '否', '是也不是', '不重要'].includes(answer)) {
           t.knownInfo.push({ question, answer });
         }
         if (json.confirmed_facts) {
@@ -536,7 +536,8 @@ const TurtleGuessMode = {
       t.guessesUsed,
       t.confidence,
       t.maxQuestions,
-      t.maxGuesses
+      t.maxGuesses,
+      t.lastActionWasGuess
     );
 
     $('#turtle-guess-response-area').classList.add('hidden');
@@ -572,7 +573,8 @@ const TurtleGuessMode = {
       t.guessesUsed,
       t.confidence,
       t.maxQuestions,
-      t.maxGuesses
+      t.maxGuesses,
+      t.lastActionWasGuess
     );
 
     if (trimmed) {
@@ -592,7 +594,18 @@ const TurtleGuessMode = {
     $('#turtle-guess-input').value = '';
     addMsg($('#turtle-guess-chat'), trimmed, 'user');
 
-    const prompt = `[自由对话] 用户说：\n"${trimmed}"\n\n请理解用户意图，将其视为对你上一个问题的回答（如果适用），然后继续提问。`;
+    let prompt = `[自由对话] 用户说：\n"${trimmed}"\n\n请理解用户意图，将其视为对你上一个问题的回答（如果适用），然后继续提问。`;
+
+    if (t.lastActionWasGuess) {
+      const remainingQ = t.maxQuestions - t.questionsAsked;
+      const remainingG = t.maxGuesses - t.guessesUsed;
+      if (remainingQ <= remainingG) {
+        prompt += '\n\n⚠️ 约束：你上次刚猜错过，必须先问至少一个问题。同时剩余问题已不多，这问之后必须发起正式猜测。';
+      } else {
+        prompt += '\n\n⚠️ 约束：你上次刚猜错过，这次必须提问，不能连续猜测。';
+      }
+    }
+
     $('#turtle-guess-response-area').classList.add('hidden');
     $('#turtle-guess-input-area').classList.add('hidden');
     await this.askNext(prompt);
@@ -651,6 +664,7 @@ const TurtleGuessMode = {
       if (displayText.includes('正式猜测') || displayText.includes('🎯')) {
         this.showGuessConfirmation(displayText);
       } else {
+        t.lastActionWasGuess = false;
         $('#turtle-guess-response-area').classList.remove('hidden');
         $('#turtle-guess-input-area').classList.remove('hidden');
       }
@@ -697,6 +711,7 @@ const TurtleGuessMode = {
   async onGuessClose() {
     const t = GameState.turtle;
     t.guessesUsed++;
+    t.lastActionWasGuess = true;
     updateTurtleGuessStats();
 
     $('#turtle-guess-confirm-area').classList.add('hidden');
@@ -718,6 +733,7 @@ const TurtleGuessMode = {
   async onGuessFar() {
     const t = GameState.turtle;
     t.guessesUsed++;
+    t.lastActionWasGuess = true;
     updateTurtleGuessStats();
 
     $('#turtle-guess-confirm-area').classList.add('hidden');
@@ -813,6 +829,7 @@ const TurtleGuessMode = {
   async onGuessWrong() {
     const t = GameState.turtle;
     t.guessesUsed++;
+    t.lastActionWasGuess = true;
     t.gameOver = true;
     updateTurtleGuessStats();
 

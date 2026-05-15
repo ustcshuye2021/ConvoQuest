@@ -65,7 +65,8 @@ const GameState = {
     knownInfo: [],
     lastQuestion: '',
     qaHistory: [],
-    playerHints: []
+    playerHints: [],
+    lastActionWasGuess: false
   },
 
   messages: [],
@@ -95,7 +96,7 @@ const GameState = {
       gameOver: false, won: false,
       confirmedFacts: [], keyInsights: [], confidence: 0,
       knownInfo: [], lastQuestion: '', qaHistory: [],
-      playerHints: []
+      playerHints: [], lastActionWasGuess: false
     };
     this.messages = [];
   },

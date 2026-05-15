@@ -103,13 +103,15 @@ TURTLE_PROMPTS.guessSystem = (maxQuestions, maxGuesses) => `你是一个海龟�
 - 每个问题必须在"是"和"否"两种回答下都有信息增益
 - 最多问${maxQuestions}个问题
 - 最多正式猜测${maxGuesses}次
+- 不允许连续猜测——猜错后必须至少再问一个问题才能再次猜测
+- 当剩余问题数 ≤ 剩余猜测次数时，必须发起正式猜测（否则猜测次数会白白浪费）
 - 使用中文交流
 
 ## 玩家可能的回答
 - 是：问题正确
 - 否：问题不正确
 - 是也不是：部分正确，问题中的某些因素是原因之一但不是全部
-- 无关：问题与真相无关
+- 不重要：问题涉及的内容汤底没说，对还原故事也不重要
 
 当玩家回答"是也不是"时，说明你的问题触及了部分真相，但不是全部。需要进一步细化问题来区分哪些部分是对的，哪些是错的。
 
@@ -132,7 +134,7 @@ TURTLE_PROMPTS.guessSystem = (maxQuestions, maxGuesses) => `你是一个海龟�
 1. **定位核心矛盾**：分析汤面，找到最需要解释的不合理之处
 2. **针对核心提问**：每个问题都应该在为解释核心矛盾服务
 3. **验证而非枚举**：先提出假设，用问题验证，而不是像查户口一样逐个确认无关细节
-4. **及时调整方向**：如果某个方向连续2-3个问题得到"否"或"无关"，说明这个方向不重要，必须果断换方向
+4. **及时调整方向**：如果某个方向连续2-3个问题得到"否"或"不重要"，说明这个方向不重要，必须果断换方向
 5. **善用排除法**：用宽泛的问题排除大范围可能性，再用具体问题缩小范围
 
 ### 提问节奏
@@ -168,15 +170,30 @@ confirmed_facts 是你维护的已知信息最小并集：
 
 key_insights说明：记录你目前最重要的推理线索和假设，尤其是核心矛盾的当前推理进展。`;
 
-TURTLE_PROMPTS.guessTurn = (answer, confirmed, keyInsights, questionsAsked, guessesUsed, confidence, maxQuestions, maxGuesses) => {
+TURTLE_PROMPTS.guessTurn = (answer, confirmed, keyInsights, questionsAsked, guessesUsed, confidence, maxQuestions, maxGuesses, lastActionWasGuess) => {
   maxQuestions = maxQuestions || 20;
   maxGuesses = maxGuesses || 3;
+  const remainingQ = maxQuestions - questionsAsked;
+  const remainingG = maxGuesses - guessesUsed;
+  const mustGuess = remainingQ <= remainingG;
+  const noConsecutiveGuess = lastActionWasGuess;
+  let constraint = '';
+  if (noConsecutiveGuess && mustGuess) {
+    constraint = '\n\n⚠️ 约束：你上次刚猜错过，必须先问至少一个问题。同时剩余问题已不多，这问之后必须发起正式猜测。';
+  } else if (noConsecutiveGuess) {
+    constraint = '\n\n⚠️ 约束：你上次刚猜错过，这次必须提问，不能连续猜测。';
+  } else if (mustGuess) {
+    constraint = `\n\n⚠️ 约束：剩余问题${remainingQ}个，剩余猜测${remainingG}次。这次必须发起正式猜测，否则猜测次数会白白浪费！`;
+  }
+
   return `[推理状态]
 已知信息（最小并集）：${confirmed.join('；') || '暂无'}
 关键推理：${keyInsights.join('；') || '暂无'}
 已提问：${questionsAsked}/${maxQuestions}
 下一个问题编号：${questionsAsked + 1}
 已猜测：${guessesUsed}/${maxGuesses}
+剩余问题：${remainingQ}
+剩余猜测：${remainingG}
 信心：${confidence}%
 
 [用户回答]
@@ -184,9 +201,10 @@ ${answer}
 
 [提问策略提醒]
 在提出下一个问题之前，先自检：
-- 我上一个方向的问题是否在收获信息？如果连续在同一方向收到"否"或"无关"，说明这个方向不重要，必须换方向。
+- 我上一个方向的问题是否在收获信息？如果连续在同一方向收到"否"或"不重要"，说明这个方向不重要，必须换方向。
 - 我的下一个问题是在针对汤面的核心矛盾提问吗？还是在无关细节上纠缠？
 - 如果玩家之前给过提示，我是否在沿着提示方向探索？
+${constraint}
 
 请继续提问或发起猜测。注意：每次只能问一个问题。以「${questionsAsked + 1}. 」开头，然后是一个完整的问题。`;
 };
