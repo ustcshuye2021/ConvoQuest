@@ -2,10 +2,10 @@
 
 const GameState = {
   screen: 'welcome',
-  apiKey: '',           // User-provided key (for custom models)
-  model: 'glm-5.1',    // Default to GLM-5.1 (built-in)
+  apiKey: '',           // User-provided key (required)
+  model: '',            // Selected preset or custom model
   customBaseUrl: '',    // Custom API base URL (for custom models)
-  useBuiltIn: true,     // Using built-in model (no user key needed)
+  useBuiltIn: false,    // No built-in models, must provide key
   mode: null,
   gameType: 'history', // 'history' or 'turtle'
   difficulty: null,

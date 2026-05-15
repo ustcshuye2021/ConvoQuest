@@ -7,23 +7,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// === Built-in Model Configs (server holds the key) ===
-
-const BUILTIN_MODELS = {
-  'glm-5.1': {
-    baseUrl: 'https://aiproxy.xin/cosphere',
-    apiKey: 'sk-eXmFNNHk8O8F5ThEiM8z3ZWeKnBFjKtUX3OgOu1OmtgVNA1G'
-  },
-  'glm-5': {
-    baseUrl: 'https://aiproxy.xin/cosphere',
-    apiKey: 'sk-eXmFNNHk8O8F5ThEiM8z3ZWeKnBFjKtUX3OgOu1OmtgVNA1G'
-  },
-  'glm-4.5-air': {
-    baseUrl: 'https://aiproxy.xin/cosphere',
-    apiKey: 'sk-eXmFNNHk8O8F5ThEiM8z3ZWeKnBFjKtUX3OgOu1OmtgVNA1G'
-  }
-};
-
 // === Preset official models (known baseUrls, user provides key) ===
 
 const PRESET_MODELS = {
@@ -45,9 +28,8 @@ app.post('/api/chat', async (req, res) => {
     apiKey: userApiKey = '',
     messages,
     stream = false,
-    model = 'glm-5.1',
-    customBaseUrl = '',
-    useBuiltIn = false
+    model = '',
+    customBaseUrl = ''
   } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
@@ -56,13 +38,7 @@ app.post('/api/chat', async (req, res) => {
 
   let url, apiKey;
 
-  if (useBuiltIn && BUILTIN_MODELS[model]) {
-    // Built-in model: use server config
-    const cfg = BUILTIN_MODELS[model];
-    url = `${cfg.baseUrl}/v1/chat/completions`;
-    apiKey = cfg.apiKey;
-  } else if (customBaseUrl) {
-    // Custom model: use user-provided baseUrl + key
+  if (customBaseUrl) {
     if (!userApiKey) {
       return res.status(400).json({ error: '请提供 API Key' });
     }
@@ -70,7 +46,6 @@ app.post('/api/chat', async (req, res) => {
     url = `${base}/v1/chat/completions`;
     apiKey = userApiKey;
   } else if (PRESET_MODELS[model] && userApiKey) {
-    // Preset model: use known baseUrl + user key
     url = `${PRESET_MODELS[model].baseUrl}/v1/chat/completions`;
     apiKey = userApiKey;
   } else {

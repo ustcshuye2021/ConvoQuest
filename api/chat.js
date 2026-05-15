@@ -1,18 +1,3 @@
-const BUILTIN_MODELS = {
-  'glm-5.1': {
-    baseUrl: 'https://aiproxy.xin/cosphere',
-    apiKey: process.env.GLM_API_KEY || 'sk-eXmFNNHk8O8F5ThEiM8z3ZWeKnBFjKtUX3OgOu1OmtgVNA1G'
-  },
-  'glm-5': {
-    baseUrl: 'https://aiproxy.xin/cosphere',
-    apiKey: process.env.GLM_API_KEY || 'sk-eXmFNNHk8O8F5ThEiM8z3ZWeKnBFjKtUX3OgOu1OmtgVNA1G'
-  },
-  'glm-4.5-air': {
-    baseUrl: 'https://aiproxy.xin/cosphere',
-    apiKey: process.env.GLM_API_KEY || 'sk-eXmFNNHk8O8F5ThEiM8z3ZWeKnBFjKtUX3OgOu1OmtgVNA1G'
-  }
-};
-
 const PRESET_MODELS = {
   'deepseek-v4-flash':  { baseUrl: 'https://api.deepseek.com' },
   'deepseek-v4-pro':    { baseUrl: 'https://api.deepseek.com' },
@@ -31,9 +16,8 @@ export default async function handler(req, res) {
     apiKey: userApiKey = '',
     messages,
     stream = false,
-    model = 'glm-5.1',
-    customBaseUrl = '',
-    useBuiltIn = false
+    model = '',
+    customBaseUrl = ''
   } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
@@ -42,11 +26,7 @@ export default async function handler(req, res) {
 
   let url, apiKey;
 
-  if (useBuiltIn && BUILTIN_MODELS[model]) {
-    const cfg = BUILTIN_MODELS[model];
-    url = `${cfg.baseUrl}/v1/chat/completions`;
-    apiKey = cfg.apiKey;
-  } else if (customBaseUrl) {
+  if (customBaseUrl) {
     if (!userApiKey) {
       return res.status(400).json({ error: '请提供 API Key' });
     }

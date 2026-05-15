@@ -122,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // === Welcome Screen ===
   const btnConfirm = $('#btn-confirm-key');
   const keyError = $('#key-error');
-  const builtinCards = $$('.builtin-models .model-card');
 
   // Tab switching (preset / custom)
   const tabs = $$('.custom-tab');
@@ -133,19 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const target = tab.dataset.tab;
       $('#preset-form').classList.toggle('hidden', target !== 'preset');
       $('#custom-form').classList.toggle('hidden', target !== 'custom');
-    });
-  });
-
-  // Built-in model card selection
-  builtinCards.forEach(card => {
-    card.addEventListener('click', () => {
-      builtinCards.forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      GameState.model = card.dataset.model;
-      GameState.useBuiltIn = true;
-      GameState.apiKey = '';
-      GameState.customBaseUrl = '';
-      keyError.classList.add('hidden');
     });
   });
 
@@ -180,7 +166,6 @@ document.addEventListener('DOMContentLoaded', () => {
       keyError.classList.remove('hidden');
       return;
     }
-    builtinCards.forEach(c => c.classList.remove('selected'));
     GameState.model = model;
     GameState.apiKey = key;
     GameState.customBaseUrl = '';
@@ -212,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
       keyError.classList.remove('hidden');
       return;
     }
-    builtinCards.forEach(c => c.classList.remove('selected'));
     GameState.model = modelName;
     GameState.apiKey = key;
     GameState.customBaseUrl = baseUrl;
@@ -235,22 +219,16 @@ document.addEventListener('DOMContentLoaded', () => {
     keyError.classList.add('hidden');
 
     try {
-      if (GameState.useBuiltIn) {
-        // Built-in model - quick validation
-        await validateApiKey('builtin');
-      } else {
-        if (!GameState.apiKey) {
-          keyError.textContent = '请选择模型或输入 API Key';
-          keyError.classList.remove('hidden');
-          btnConfirm.disabled = false;
-          btnConfirm.textContent = '进入游戏厅';
-          return;
-        }
-        await validateApiKey(GameState.apiKey);
+      if (!GameState.apiKey) {
+        keyError.textContent = '请选择模型并输入 API Key';
+        keyError.classList.remove('hidden');
+        btnConfirm.disabled = false;
+        btnConfirm.textContent = '进入游戏厅';
+        return;
       }
+      await validateApiKey(GameState.apiKey);
       try {
         localStorage.setItem('selected_model', GameState.model);
-        localStorage.setItem('use_builtin', GameState.useBuiltIn ? '1' : '');
       } catch {}
       showScreen('screen-mode');
     } catch (err) {
@@ -264,17 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Restore saved preferences
   try {
-    const savedUseBuiltin = localStorage.getItem('use_builtin');
-    const savedModel = localStorage.getItem('selected_model');
-    if (savedUseBuiltin && savedModel) {
-      const card = document.querySelector(`.model-card[data-model="${savedModel}"]`);
-      if (card) {
-        builtinCards.forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        GameState.model = savedModel;
-        GameState.useBuiltIn = true;
-      }
-    }
     const savedPresetModel = localStorage.getItem('preset_model');
     const savedPresetKey = localStorage.getItem('preset_key');
     if (savedPresetModel) $('#preset-provider').value = savedPresetModel;
