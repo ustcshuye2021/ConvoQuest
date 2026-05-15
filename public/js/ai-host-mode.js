@@ -273,9 +273,6 @@ const AIHostMode = {
           host.guessedFigures.push(trimmed);
           shake(msgDiv);
           return;
-          }
-          shake(msgDiv);
-          return;
         }
       }
 
