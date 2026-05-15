@@ -66,7 +66,7 @@ async function chatFull(messages, _apiKey) {
   const resp = await fetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ..._buildBody(), messages, stream: false })
+    body: JSON.stringify({ ..._buildBody(), messages, stream: true })
   });
 
   if (!resp.ok) {
@@ -74,8 +74,31 @@ async function chatFull(messages, _apiKey) {
     throw new Error(err.error || `请求失败 (${resp.status})`);
   }
 
-  const data = await resp.json();
-  return data.choices?.[0]?.message?.content || '';
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+      const data = trimmed.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const json = JSON.parse(data);
+        const content = json.choices?.[0]?.delta?.content || '';
+        if (content) fullText += content;
+      } catch {}
+    }
+  }
+
+  return fullText;
 }
 
 async function validateApiKey(apiKey) {
