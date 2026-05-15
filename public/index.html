@@ -78,11 +78,11 @@
           <button id="btn-hall-settings" class="btn-settings" title="设置">⚙️</button>
         </div>
         <div class="game-grid">
-          <div class="game-card" data-game="history">
-            <div class="game-card-icon">🏛️</div>
-            <h3>猜历史人物</h3>
-            <p class="game-card-desc">AI 选人物给线索让你猜，或你想好人物让 AI 猜</p>
-            <span class="game-card-tag">知识推理</span>
+          <div class="game-card" data-game="twentyq">
+            <div class="game-card-icon">❓</div>
+            <h3>20个问题</h3>
+            <p class="game-card-desc">通过是/否问题推理，猜出 AI 选的目标或让 AI 猜你心中的目标</p>
+            <span class="game-card-tag">经典推理</span>
           </div>
           <div class="game-card" data-game="turtle">
             <div class="game-card-icon">🍲</div>
@@ -147,7 +147,7 @@
       <!-- Right: Chat -->
       <main class="host-main">
         <div class="host-chat-header">
-          <span class="host-chat-rule">AI 只能回答：<strong>是 / 否 / 是也不是 / 正史无记载</strong></span>
+          <span class="host-chat-rule">AI 只能回答：<strong>是 / 否 / 是也不是 / 未知</strong></span>
         </div>
         <div id="host-chat-area" class="chat-area">
           <!-- Chat messages -->
@@ -218,7 +218,7 @@
       <!-- Right: Chat -->
       <main class="guess-main">
         <div id="guess-chat-area" class="chat-area">
-          <div class="msg-system">请心中想好一个历史人物（真实存在、有史料记载），然后点击下方"准备好了"。</div>
+          <div class="msg-system">请心中想好一个目标，然后点击下方"准备好了"。</div>
         </div>
 
         <div id="guess-loading" class="loading hidden">
@@ -552,6 +552,7 @@
   <!-- Game Scripts -->
   <script src="js/api.js"></script>
   <script src="js/game-state.js"></script>
+  <script src="js/categories.js"></script>
   <script src="js/prompts.js"></script>
   <script src="js/turtle-prompts.js"></script>
   <script src="js/ui.js"></script>

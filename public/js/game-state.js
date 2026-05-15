@@ -7,7 +7,8 @@ const GameState = {
   customBaseUrl: '',    // Custom API base URL (for custom models)
   useBuiltIn: false,    // No built-in models, must provide key
   mode: null,
-  gameType: 'history', // 'history' or 'turtle'
+  gameType: 'twentyq', // 'twentyq' or 'turtle'
+  category: null,       // For twentyq: which category (history/nature/object/event/character/place)
   difficulty: null,
 
   host: {

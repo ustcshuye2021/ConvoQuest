@@ -47,12 +47,40 @@ const AIGuessMode = {
 
   // --- Game Flow ---
 
-  async start() {
+  async start(categoryId) {
+    const cat = CATEGORIES[categoryId || 'history'];
     GameState.mode = 'ai-guess';
     GameState.reset();
     GameState.mode = 'ai-guess';
+    GameState.category = categoryId;
 
-    $('#guess-chat-area').innerHTML = '<div class="msg-system">请心中想好一个历史人物（真实存在、有史料记载），然后点击下方"准备好了"。</div>';
+    // Update sidebar title
+    $('.guess-sidebar .sidebar-title').innerHTML = `🤔 AI 来猜 · ${cat.name} <button class="btn-settings btn-open-settings" title="设置">⚙️</button>`;
+
+    // Update answer buttons for category-specific unknown answer
+    const responseArea = $('#guess-response-area');
+    responseArea.innerHTML = `
+      <button class="btn-answer" data-answer="是">✅ 是</button>
+      <button class="btn-answer" data-answer="否">❌ 否</button>
+      <button class="btn-answer" data-answer="是也不是">↔️ 是也不是</button>
+      <button class="btn-answer" data-answer="${cat.unknownAnswer}">❓ ${cat.unknownAnswer}</button>
+      <button class="btn-answer" data-answer="我不知道">🤷 我不知道</button>
+    `;
+    // Re-bind answer buttons
+    $$('.btn-answer').forEach(btn => {
+      btn.addEventListener('click', () => AIGuessMode.onAnswer(btn.dataset.answer));
+    });
+
+    // Update reroll answer options
+    const rerollSelect = $('#guess-reroll-new-answer');
+    rerollSelect.innerHTML = `
+      <option value="是">✅ 是</option>
+      <option value="否">❌ 否</option>
+      <option value="是也不是">↔️ 是也不是</option>
+      <option value="${cat.unknownAnswer}">❓ ${cat.unknownAnswer}</option>
+    `;
+
+    $('#guess-chat-area').innerHTML = `<div class="msg-system">请心中想好一个${cat.desc}，然后点击下方"准备好了"。</div>`;
     updateGuessStats();
     updatePanel();
     $('#guess-response-area').classList.add('hidden');
@@ -68,15 +96,18 @@ const AIGuessMode = {
   },
 
   async onReady() {
+    const categoryId = GameState.category;
+    const cat = CATEGORIES[categoryId || 'history'];
+
     $('#guess-answer-area').classList.add('hidden');
     $('#guess-input-area').classList.remove('hidden');
     addMsg($('#guess-chat-area'), '准备好了！请开始提问。', 'user');
 
     GameState.messages = [
-      { role: 'system', content: PROMPTS.aiGuessSystem }
+      { role: 'system', content: PROMPTS.aiGuessSystem(categoryId) }
     ];
 
-    await this.askNext('用户已准备好，请开始第一个问题（编号1）。随机选择提问顺序和问法，问题前加序号「1. 」。');
+    await this.askNext(`用户已准备好，心中想好了一个${cat.targetName}（${cat.desc}）。请开始第一个问题（编号1）。随机选择提问顺序和问法，问题前加序号「1. 」。`);
   },
 
   async onAnswer(answer) {
@@ -109,11 +140,12 @@ const AIGuessMode = {
 
   async _continueAfterAnswer(answer) {
     const g = GameState.guess;
+    const categoryId = GameState.category;
     const prompt = PROMPTS.aiGuessTurn(
       answer, g.confirmed, g.ruledOut,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, null
+      g.lastActionWasGuess, null, categoryId
     );
     await this.askNext(prompt);
   },
@@ -126,16 +158,17 @@ const AIGuessMode = {
     const trimmed = text.trim();
     if (!trimmed) return;
 
+    const categoryId = GameState.category;
     $('#guess-input').value = '';
     addMsg($('#guess-chat-area'), trimmed, 'user');
 
     const g = GameState.guess;
     const prompt = PROMPTS.aiGuessTurn(
-      `[自由对话] 用户说了一段话：\n"${trimmed}"\n\n请理解其意图，将其视为对你上一个问题的回答（如果适用），更新推理状态和人物画像，然后继续提问。`,
+      `[自由对话] 用户说了一段话：\n"${trimmed}"\n\n请理解其意图，将其视为对你上一个问题的回答（如果适用），更新推理状态和画像，然后继续提问。`,
       g.confirmed, g.ruledOut,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, null
+      g.lastActionWasGuess, null, categoryId
     );
 
     await this.askNext(prompt);
@@ -145,6 +178,7 @@ const AIGuessMode = {
 
   async onPlayerHint(text) {
     const g = GameState.guess;
+    const categoryId = GameState.category;
     const hint = text.trim();
     if (!hint) return;
 
@@ -159,7 +193,7 @@ const AIGuessMode = {
       g.confirmed, g.ruledOut,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, hint
+      g.lastActionWasGuess, hint, categoryId
     );
 
     await this.askNext(prompt);
@@ -198,6 +232,7 @@ const AIGuessMode = {
 
   async onRerollAnswer() {
     const g = GameState.guess;
+    const categoryId = GameState.category;
     const idx = parseInt($('#guess-reroll-select').value);
     const newAnswer = $('#guess-reroll-new-answer').value;
 
@@ -220,7 +255,7 @@ const AIGuessMode = {
 
 请根据修正后的回答重新推理：
 1. 更新 confirmed 和 ruled_out 列表
-2. **重新整理 portrait 人物画像**（这是最重要的！根据修正后的信息重新归类）
+2. 重新整理 portrait 画像（根据修正后的信息重新归类）
 3. 更新 candidates 候选方向
 4. 继续提问`;
 
@@ -228,7 +263,7 @@ const AIGuessMode = {
       correctionPrompt, g.confirmed, g.ruledOut,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, null
+      g.lastActionWasGuess, null, categoryId
     );
 
     await this.askNext(prompt);
@@ -236,7 +271,6 @@ const AIGuessMode = {
 
   onRerollCancel() {
     $('#guess-reroll-area').classList.add('hidden');
-    // If AI is still thinking, don't show answer buttons
     if (this._thinking) return;
     this._showWaitingForAnswer();
   },
@@ -340,6 +374,7 @@ const AIGuessMode = {
 
   async onGuessWrong() {
     const g = GameState.guess;
+    const categoryId = GameState.category;
     g.guessesUsed++;
     g.lastActionWasGuess = true;
     updateGuessStats();
@@ -355,11 +390,11 @@ const AIGuessMode = {
     }
 
     const prompt = PROMPTS.aiGuessTurn(
-      '猜错了，不是这个人。你必须先提问，不能连续猜测。',
+      '猜错了。你必须先提问，不能连续猜测。',
       g.confirmed, g.ruledOut,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      true, null
+      true, null, categoryId
     );
     await this.askNext(prompt);
   },
@@ -367,6 +402,7 @@ const AIGuessMode = {
   // --- Review ---
 
   async startReview(won) {
+    const categoryId = GameState.category;
     addMsg($('#guess-chat-area'), '━━━ 复盘阶段 ━━━', 'system');
 
     this._setThinking(true);
@@ -384,7 +420,8 @@ const AIGuessMode = {
       GameState.guess.confirmed,
       GameState.guess.ruledOut,
       GameState.guess.questionsAsked,
-      GameState.guess.guessesUsed
+      GameState.guess.guessesUsed,
+      categoryId
     );
 
     showLoading('guess-loading');
@@ -429,9 +466,10 @@ const AIGuessMode = {
   showResult() {
     const g = GameState.guess;
     const won = g.won;
+    const cat = CATEGORIES[GameState.category || 'history'];
 
     $('#result-title').textContent = won ? '🤖 AI 猜对了！' : '😅 AI 认输了！';
-    $('#result-name').textContent = '你心中想的人物';
+    $('#result-name').textContent = `你心中想的${cat.targetName}`;
     $('#result-details').innerHTML = `
       <p>📊 总提问：${g.questionsAsked} 个</p>
       <p>🎯 正式猜测：${g.guessesUsed} 次</p>

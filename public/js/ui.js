@@ -91,7 +91,7 @@ function updateHostScore() {
   // no-op: score hidden from UI
 }
 
-function updateHostPortrait() {
+function updateHostPortrait(categoryId) {
   const portraitUl = $('#host-portrait');
   const emptyHint = $('#host-portrait-empty');
   const portrait = GameState.host.portrait;
@@ -108,13 +108,15 @@ function updateHostPortrait() {
   }
 }
 
-function addAnswerBadge(container, answer) {
+function addAnswerBadge(container, answer, categoryId) {
+  const cat = CATEGORIES[categoryId || 'history'];
+  const unknownText = cat.unknownAnswer;
   const badge = document.createElement('div');
   const answerMap = {
     '是': { cls: 'yes', icon: '✅', text: '是' },
     '否': { cls: 'no', icon: '❌', text: '否' },
     '是也不是': { cls: 'partial', icon: '↔️', text: '是也不是' },
-    '正史无记载': { cls: 'unknown', icon: '📚', text: '正史无记载' },
+    [unknownText]: { cls: 'unknown', icon: '❓', text: unknownText },
     '请重新提问': { cls: 'rephrase', icon: '🔄', text: '请重新提问' }
   };
   const info = answerMap[answer] || { cls: 'unknown', icon: '❓', text: answer };
@@ -139,7 +141,20 @@ function updateGuessStats() {
   }
 }
 
-const PORTRAIT_ICONS = { 时代: '🕐', 地域: '🌍', 性别: '👤', 领域: '📖', 身份: '🏷️', 事迹: '⚔️', 生平: '📜', 其他: '📌' };
+const PORTRAIT_ICONS = {
+  // History
+  时代: '🕐', 地域: '🌍', 性别: '👤', 领域: '📖', 身份: '🏷️', 事迹: '⚔️', 生平: '📜', 其他: '📌',
+  // Nature
+  类别: '🏷️', 栖息地: '🌍', 体型: '📏', 食性: '🍽️', 特征: '✨', 分布: '🗺️',
+  // Object
+  材质: '🧱', 用途: '🔧', 发明者: '👤', 产地: '📍',
+  // Event
+  类型: '🏷️', 参与方: '👥', 结果: '🏁', 影响: '💫',
+  // Character
+  作品: '🎬', 性格: '💭', 关系: '🔗',
+  // Place
+  位置: '📍', 名气: '⭐', 功能: '🔧'
+};
 
 function updatePanel() {
   const knownUl = $('#panel-known');

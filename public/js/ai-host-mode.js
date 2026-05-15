@@ -4,34 +4,33 @@ const AIHostMode = {
   BASE_SCORE: 100,
   QUESTION_COST: 0.5,
 
-  // Title tiers — thresholds vary by difficulty
-  getTitle(score, difficulty) {
-    // harder difficulty → lower threshold for same title
+  // Title tiers — category-specific
+  getTitle(score, difficulty, categoryId) {
+    const cat = CATEGORIES[categoryId || 'history'];
     const thresholds = {
       easy:   [100, 92, 82, 70, 58, 42, 0],
       medium: [100, 88, 76, 62, 48, 32, 0],
       hard:   [100, 84, 68, 52, 38, 22, 0]
     };
-    const titles = [
-      '🏛️ 史神 — 满分通关，历史在你面前没有秘密',
-      '🎓 博古通今 — 学识渊博，令人叹服',
-      '📖 学富五车 — 功底扎实，游刃有余',
-      '⭐ 历史达人 — 知识面广，值得称赞',
-      '👍 历史爱好者 — 有一定基础，继续努力',
-      '🌱 历史入门 — 知识尚浅，有待提升',
-      '🐣 历史小白 — 万丈高楼平地起，加油学习吧'
-    ];
+    const wonTitles = cat.titles.won || ['🏆 大师', '⭐ 达人', '👍 爱好者', '🌱 入门'];
+    const lostTitle = cat.titles.lost?.[0] || '🤔 下次再挑战';
+
+    // Pad titles to match thresholds length
+    while (wonTitles.length < 7) wonTitles.push(wonTitles[wonTitles.length - 1]);
+
     const t = thresholds[difficulty] || thresholds.easy;
-    for (let i = 0; i < titles.length; i++) {
-      if (score >= t[i]) return titles[i];
+    for (let i = 0; i < wonTitles.length; i++) {
+      if (score >= t[i]) return wonTitles[i];
     }
-    return titles[titles.length - 1];
+    return lostTitle;
   },
 
-  async start(difficulty) {
+  async start(difficulty, categoryId) {
+    const cat = CATEGORIES[categoryId || 'history'];
     GameState.reset();
     GameState.mode = 'ai-host';
     GameState.difficulty = difficulty;
+    GameState.category = categoryId;
 
     // Init blind guesses
     const blindTotal = GameState.getBlindGuesses();
@@ -44,20 +43,26 @@ const AIHostMode = {
     badge.textContent = `${diffLabels[difficulty]}`;
     badge.className = `badge badge-${difficulty}`;
 
+    // Update sidebar title
+    $('.host-sidebar .sidebar-title').innerHTML = `🎯 AI 出题 · ${cat.name} <span id="host-difficulty-badge" class="badge badge-${difficulty}">${diffLabels[difficulty]}</span> <button class="btn-settings btn-open-settings" title="设置">⚙️</button>`;
+
     // Clear UI
     $('#host-hints-area').innerHTML = '<div id="host-hints-empty" class="panel-empty">暂无线索</div>';
     $('#host-chat-area').innerHTML = '';
     $('#host-input').value = '';
     updateHostStats();
-    updateHostPortrait();
+    updateHostPortrait(categoryId);
     showScreen('screen-game-host');
+
+    // Update chat header rule
+    $('.host-chat-header').innerHTML = `<span class="host-chat-rule">AI 只能回答：<strong>是 / 否 / 是也不是 / ${cat.unknownAnswer}</strong></span>`;
 
     // Select figure
     showLoading('host-loading');
-    addMsg($('#host-chat-area'), '正在选择历史人物...', 'system');
+    addMsg($('#host-chat-area'), `正在选择${cat.targetName}...`, 'system');
 
     try {
-      const selMsg = [{ role: 'user', content: PROMPTS.figureSelection(difficulty) }];
+      const selMsg = [{ role: 'user', content: PROMPTS.figureSelection(difficulty, categoryId) }];
       const raw = await chatFull(selMsg, GameState.apiKey);
 
       let figure;
@@ -66,25 +71,32 @@ const AIHostMode = {
         if (!jsonMatch) throw new Error('无法解析');
         figure = JSON.parse(jsonMatch[0]);
       } catch (e) {
-        addMsg($('#host-chat-area'), `选择人物失败，请重试。\n\n（原始响应：${raw.substring(0, 200)}${raw.length > 200 ? '...' : ''}）`, 'system');
+        addMsg($('#host-chat-area'), `选择失败，请重试。\n\n（原始响应：${raw.substring(0, 200)}${raw.length > 200 ? '...' : ''}）`, 'system');
         hideLoading('host-loading');
         setTimeout(() => showScreen('screen-mode'), 2000);
         return;
       }
 
       GameState.host.secretFigure = figure;
+
+      // Build figure info for system prompt
+      const figureInfo = Object.entries(figure)
+        .filter(([k]) => !['name_cn', 'name_en', 'bio', 'fun_fact'].includes(k))
+        .map(([k, v]) => `${k}：${v}`)
+        .join('\n');
+
       GameState.messages = [
-        { role: 'system', content: PROMPTS.aiHostSystem + '\n\n你选择的人物是：' + figure.name_cn + (figure.name_en ? ' / ' + figure.name_en : '') + '\n时代：' + figure.era + '\n地域：' + figure.region + '\n身份：' + figure.identity + '\n成就：' + figure.achievement },
-        { role: 'assistant', content: '好，我已经选好了一个历史人物。让我们开始吧！' }
+        { role: 'system', content: PROMPTS.aiHostSystem(categoryId) + '\n\n你选择的' + cat.targetName + '是：' + figure.name_cn + (figure.name_en ? ' / ' + figure.name_en : '') + '\n' + figureInfo },
+        { role: 'assistant', content: `好，我已经选好了一个${cat.targetName}。让我们开始吧！` }
       ];
 
       hideLoading('host-loading');
       $('#host-chat-area').innerHTML = '';
       addMsg($('#host-chat-area'),
-        `好，我已经选好了一个历史人物。\n\n` +
+        `好，我已经选好了一个${cat.targetName}。\n\n` +
         `你可以：\n` +
-        `• 提问（我只会回答「是/否/是也不是/正史无记载」）\n` +
-        `• 直接说出人名来猜测（如「达芬奇」「是牛顿吗」）\n` +
+        `• 提问（我只会回答「是/否/是也不是/${cat.unknownAnswer}」）\n` +
+        `• 直接说出名称来猜测\n` +
         `• 🎲 盲猜（你有 ${blindTotal} 次盲猜机会，猜错不扣分）\n` +
         `• 📜 提示（点击提示按钮获取线索，每条线索扣分）`,
         'ai');
@@ -97,6 +109,7 @@ const AIHostMode = {
 
   async revealHint() {
     const host = GameState.host;
+    const categoryId = GameState.category;
     const maxHints = GameState.getMaxHints();
     if (host.hintsRevealed >= maxHints) {
       addMsg($('#host-chat-area'), '所有线索已用完！', 'system');
@@ -107,7 +120,7 @@ const AIHostMode = {
     try {
       const hintPrompt = PROMPTS.generateHint(
         host.secretFigure, host.portrait, host.qaHistory,
-        host.hintsRevealed, maxHints
+        host.hintsRevealed, maxHints, categoryId
       );
       const raw = await chatFull(
         [{ role: 'user', content: hintPrompt }],
@@ -160,6 +173,8 @@ const AIHostMode = {
 
   async submitBlindGuess(text) {
     const host = GameState.host;
+    const categoryId = GameState.category;
+    const cat = CATEGORIES[categoryId || 'history'];
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -176,7 +191,7 @@ const AIHostMode = {
     try {
       const evalMsgs = [
         { role: 'system', content: '你是一个判断助手。只回复CORRECT、CLOSE或WRONG这三个英文词之一，不要回复任何其他内容。' },
-        { role: 'user', content: PROMPTS.evaluateGuess(host.secretFigure, trimmed) }
+        { role: 'user', content: PROMPTS.evaluateGuess(host.secretFigure, trimmed, categoryId) }
       ];
       const evalResult = (await chatFull(evalMsgs, GameState.apiKey)).trim().toUpperCase();
       hideLoading('host-loading');
@@ -187,7 +202,7 @@ const AIHostMode = {
         this.endGame(true);
         return;
       } else if (evalResult.includes('CLOSE')) {
-        addMsg($('#host-chat-area'), '🔶 很接近！但不是这个人。（盲猜不扣分）', 'close');
+        addMsg($('#host-chat-area'), `🔶 很接近！但不是这个${cat.targetName}。（盲猜不扣分）`, 'close');
         this._checkBlindExhausted();
         return;
       } else {
@@ -205,7 +220,6 @@ const AIHostMode = {
     const host = GameState.host;
     if (host.blindGuessesLeft <= 0) {
       addMsg($('#host-chat-area'), '🎲 盲猜机会已用完。继续通过提问缩小范围，或直接输入猜测。', 'system');
-      // Disable blind guess button
       const btn = $('#btn-host-blind');
       if (btn) btn.disabled = true;
     }
@@ -215,6 +229,7 @@ const AIHostMode = {
 
   async handleInput(userText) {
     const host = GameState.host;
+    const categoryId = GameState.category;
     if (host.gameOver || !host.secretFigure) return;
 
     const trimmed = userText.trim();
@@ -239,7 +254,7 @@ const AIHostMode = {
     showLoading('host-loading');
     try {
       const answerPrompt = PROMPTS.aiHostAnswer(
-        host.secretFigure, trimmed, host.portrait, host.questionsAsked
+        host.secretFigure, trimmed, host.portrait, host.questionsAsked, categoryId
       );
       const answerMsgs = [
         { role: 'system', content: answerPrompt },
@@ -274,7 +289,7 @@ const AIHostMode = {
             const msgDiv = addMsg($('#host-chat-area'), '🔶 很接近了！方向对了，已揭示新线索。', 'close');
             shake(msgDiv);
           } else {
-            const msgDiv = addMsg($('#host-chat-area'), '🔶 很接近了！但不是这个人。', 'close');
+            const msgDiv = addMsg($('#host-chat-area'), '🔶 很接近了！', 'close');
             shake(msgDiv);
           }
           return;
@@ -296,7 +311,7 @@ const AIHostMode = {
       // type === 'question'
       const answer = response.answer || '请重新提问';
       if (answer === '请重新提问') {
-        addAnswerBadge($('#host-chat-area'), answer);
+        addAnswerBadge($('#host-chat-area'), answer, categoryId);
         addMsg($('#host-chat-area'), '（不计入提问次数，请换一种方式提问）', 'system');
       } else {
         host.questionsAsked++;
@@ -305,11 +320,11 @@ const AIHostMode = {
         updateHostStats();
         updateHostScore(oldScore);
 
-        addAnswerBadge($('#host-chat-area'), answer);
+        addAnswerBadge($('#host-chat-area'), answer, categoryId);
 
         if (response.portrait && Object.keys(response.portrait).length > 0) {
           Object.assign(host.portrait, response.portrait);
-          updateHostPortrait();
+          updateHostPortrait(categoryId);
         }
 
         host.qaHistory.push({ question: trimmed, answer });
@@ -332,9 +347,10 @@ const AIHostMode = {
   async startReview(won) {
     const host = GameState.host;
     const fig = host.secretFigure;
+    const categoryId = GameState.category;
     const maxHints = GameState.getMaxHints();
     const finalScore = host.score;
-    const title = this.getTitle(finalScore, GameState.difficulty);
+    const title = this.getTitle(finalScore, GameState.difficulty, categoryId);
 
     addMsg($('#host-chat-area'), '━━━ 游戏结束 ━━━', 'system');
     addMsg($('#host-chat-area'), `💰 最终得分：${finalScore} 分\n🏆 称号：${title}`, 'system');
@@ -347,7 +363,7 @@ const AIHostMode = {
     const reviewPrompt = PROMPTS.aiHostReview(
       won, fig, host.hintsRevealed, maxHints,
       host.guessesUsed, host.guessedFigures,
-      finalScore, title
+      finalScore, title, categoryId
     );
 
     showLoading('host-loading');
@@ -393,8 +409,10 @@ const AIHostMode = {
     const host = GameState.host;
     const won = host.won;
     const fig = host.secretFigure;
+    const categoryId = GameState.category;
+    const cat = CATEGORIES[categoryId || 'history'];
     const finalScore = host.score;
-    const title = this.getTitle(finalScore, GameState.difficulty);
+    const title = this.getTitle(finalScore, GameState.difficulty, categoryId);
 
     if (won) {
       $('#result-title').textContent = '🎉 恭喜猜对了！';
@@ -403,13 +421,16 @@ const AIHostMode = {
     }
 
     $('#result-name').textContent = fig.name_cn + (fig.name_en ? ` / ${fig.name_en}` : '');
-    $('#result-details').innerHTML = `
-      <p>📅 时代：${fig.era}</p>
-      <p>📍 地域：${fig.region}</p>
-      <p>🏛️ 身份：${fig.identity}</p>
-      <p>⭐ 成就：${fig.achievement}</p>
-      <p>📖 简介：${fig.bio}</p>
-    `;
+
+    // Build result details from figure object (category-specific)
+    let detailsHtml = '';
+    const skipKeys = ['name_cn', 'name_en', 'bio', 'fun_fact'];
+    for (const [key, val] of Object.entries(fig)) {
+      if (skipKeys.includes(key)) continue;
+      detailsHtml += `<p>${key}：${val}</p>`;
+    }
+    if (fig.bio) detailsHtml += `<p>📖 简介：${fig.bio}</p>`;
+    $('#result-details').innerHTML = detailsHtml;
 
     const maxHints = GameState.getMaxHints();
     const hintsUsed = host.hintsRevealed;

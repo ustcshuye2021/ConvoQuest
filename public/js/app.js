@@ -184,17 +184,14 @@ const Settings = {
 
 // Game definitions - add new games here
 const GAMES = {
-  history: {
-    icon: '🏛️',
-    name: '猜历史人物',
+  twentyq: {
+    icon: '❓',
+    name: '20个问题',
+    desc: '通过是/否问题推理，猜出目标或让 AI 猜你的目标',
+    tag: '经典推理',
     modes: [
-      { id: 'ai-host', icon: '🎯', name: 'AI 出题', desc: 'AI 选一个历史人物，给你线索让你猜', needDifficulty: true },
-      { id: 'ai-guess', icon: '🤔', name: 'AI 来猜', desc: '你心中想好人物，AI 提问来猜', needDifficulty: false }
-    ],
-    difficulties: [
-      { id: 'easy', stars: '⭐', name: '简单', desc: '教科书级人物，6次猜测' },
-      { id: 'medium', stars: '⭐⭐', name: '中等', desc: '知名人物，8次猜测' },
-      { id: 'hard', stars: '⭐⭐⭐', name: '困难', desc: '冷门人物，10次猜测' }
+      { id: 'ai-host', icon: '🎯', name: 'AI 出题', desc: 'AI 选一个目标，给你线索让你猜', needDifficulty: true },
+      { id: 'ai-guess', icon: '🤔', name: 'AI 来猜', desc: '你心中想好目标，AI 提问来猜', needDifficulty: true }
     ]
   },
   turtle: {
@@ -226,7 +223,31 @@ function showGameModes(gameId) {
     <h2>${game.name}</h2>
   `;
 
-  // Build mode cards
+  // For twentyq: show category selection first
+  if (gameId === 'twentyq') {
+    const categoryCardsHtml = Object.values(CATEGORIES).map(cat => `
+      <div class="mode-card" data-category-id="${cat.id}">
+        <div class="mode-icon">${cat.icon}</div>
+        <h3>${cat.name}</h3>
+        <p>${cat.desc}</p>
+      </div>
+    `).join('');
+    $('#hall-mode-cards').innerHTML = categoryCardsHtml;
+    $('#hall-difficulty').classList.add('hidden');
+
+    // Bind category card clicks
+    $$('#hall-mode-cards .mode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const categoryId = card.dataset.categoryId;
+        GameState._pendingCategory = categoryId;
+        // After category selected, show mode selection
+        showTwentyQModes(categoryId);
+      });
+    });
+    return;
+  }
+
+  // For turtle: show mode selection directly
   const cardsHtml = game.modes.map(m => `
     <div class="mode-card" data-mode-id="${m.id}">
       <div class="mode-icon">${m.icon}</div>
@@ -273,20 +294,84 @@ function showGameModes(gameId) {
   $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
     btn.addEventListener('click', () => {
       const diff = btn.dataset.diffId;
-      const gameId = btn.dataset.game;
       launchGame(gameId, GameState._pendingMode, diff);
     });
   });
 }
 
+function showTwentyQModes(categoryId) {
+  const category = CATEGORIES[categoryId];
+  const game = GAMES.twentyq;
+
+  // Update header
+  $('#hall-mode-header').innerHTML = `
+    <span class="mode-game-icon">${category.icon}</span>
+    <h2>${category.name}</h2>
+  `;
+
+  // Show mode cards
+  const cardsHtml = game.modes.map(m => `
+    <div class="mode-card" data-mode-id="${m.id}">
+      <div class="mode-icon">${m.icon}</div>
+      <h3>${m.name}</h3>
+      <p>${m.desc.replace('目标', category.targetName)}</p>
+    </div>
+  `).join('');
+  $('#hall-mode-cards').innerHTML = cardsHtml;
+  $('#hall-difficulty').classList.add('hidden');
+
+  // Reset opacity
+  $$('#hall-mode-cards .mode-card').forEach(c => {
+    c.style.opacity = '1';
+    c.style.pointerEvents = 'auto';
+  });
+
+  // Build difficulty buttons for this category
+  const diffs = category.difficulties;
+  const diffHtml = Object.entries(diffs).map(([id, d]) => `
+    <button class="btn-difficulty" data-diff-id="${id}" data-category="${categoryId}">
+      <span class="stars">${id === 'easy' ? '⭐' : id === 'medium' ? '⭐⭐' : '⭐⭐⭐'}</span>
+      <span class="diff-name">${d.name}</span>
+      <span class="diff-desc">${d.desc}</span>
+    </button>
+  `).join('');
+  $('#hall-difficulty-buttons').innerHTML = diffHtml;
+
+  // Bind mode card clicks
+  $$('#hall-mode-cards .mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const modeId = card.dataset.modeId;
+      GameState._pendingMode = modeId;
+      // Show difficulty, dim unselected cards
+      $('#hall-difficulty').classList.remove('hidden');
+      $$('#hall-mode-cards .mode-card').forEach(c => {
+        c.style.opacity = c === card ? '1' : '0.4';
+        c.style.pointerEvents = 'none';
+      });
+    });
+  });
+
+  // Bind difficulty clicks
+  $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const diff = btn.dataset.diffId;
+      const categoryId = btn.dataset.category;
+      launchTwentyQ(categoryId, GameState._pendingMode, diff);
+    });
+  });
+}
+
 function launchGame(gameId, modeId, difficulty) {
-  if (gameId === 'history') {
-    if (modeId === 'ai-host') AIHostMode.start(difficulty);
-    else if (modeId === 'ai-guess') AIGuessMode.start();
-  } else if (gameId === 'turtle') {
+  if (gameId === 'turtle') {
     if (modeId === 'turtle-host') TurtleHostMode.start(difficulty);
     else if (modeId === 'turtle-guess') TurtleGuessMode.start();
   }
+}
+
+function launchTwentyQ(categoryId, modeId, difficulty) {
+  GameState.category = categoryId;
+  if (modeId === 'ai-host') AIHostMode.start(difficulty, categoryId);
+  else if (modeId === 'ai-guess') AIGuessMode.start(categoryId);
 }
 
 function backToGameList() {
@@ -722,9 +807,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // === Result Screen ===
   $('#btn-play-again').addEventListener('click', () => {
     const prevMode = GameState.mode;
+    const prevCategory = GameState.category;
     GameState.reset();
-    if (prevMode === 'ai-guess') {
-      AIGuessMode.start();
+    if (prevMode === 'ai-guess' && prevCategory) {
+      AIGuessMode.start(prevCategory);
     } else if (prevMode === 'turtle-guess') {
       TurtleGuessMode.start();
     } else {
