@@ -45,60 +45,61 @@ PROMPTS.figureSelection = (difficulty) => {
   "identity": "身份",
   "achievement": "主要成就",
   "bio": "一句话简介",
-  "fun_fact": "趣闻轶事",
-  "hints": [
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "维度名", "content": "线索内容"},
-    {"category": "姓名", "content": "线索内容"}
-  ]
+  "fun_fact": "趣闻轶事"
 }
 
-## 线索设计规则（极其重要，必须严格遵守）
+选择人物时注意：
+- 人物必须有充分史料记载，真实性确定
+- 人物的故事有足够的有趣细节可以分享
+- 避免选择争议过大或评价极端两极化的人物`;
+};
 
-### 核心原则：每条线索必须提供前文未提及的新信息
-- 禁止信息包含/重叠：如果第1条说了"11世纪"，第2条绝对不能再说"东亚"和"11世纪"在一起，因为"11世纪的东亚"比"11世纪"范围小太多——第2条应该提供一个不与时代交叉的新维度
-- 每条线索只从以下维度中挑一个切面，且不能与前文已用的维度重叠太多：
-  可用维度：时代、地域、领域、成就类型、个人经历、同时代关联、文化符号、性别、知名度、结局/命运、外貌特征、名言/典故、姓名特征
+PROMPTS.generateHint = (figure, portrait, qaHistory, hintsRevealed, maxHints) => {
+  const portraitEntries = Object.entries(portrait);
+  const portraitStr = portraitEntries.length > 0
+    ? portraitEntries.map(([k, v]) => `${k}: ${v}`).join('；')
+    : '暂无';
+  const qaStr = qaHistory.length > 0
+    ? qaHistory.map(qa => `问：${qa.question} → 答：${qa.answer}`).join('\n')
+    : '暂无';
+  const isLast = hintsRevealed >= maxHints - 1;
 
-### 随机性要求
-- 每次生成线索时，从上述维度中随机挑选不同的排列组合
-- 不要总是按"时代→地域→领域"的固定顺序
-- 可以是：领域→时代→成就→关联→性别→特征→名言→姓名
-- 也可以是：知名度→地域→结局→时代→领域→轶事→关联→姓名
-- 每次生成的顺序都应该不同
+  return `你是猜历史人物游戏的主持人。玩家请求一条提示线索。
 
-### 信息量递进控制
-- 第1-3条：每个维度只给最粗粒度的描述，每个线索最多排除全球人物的30%
-  - ✅ 好："此人活跃于公元前的某个时期"（排除约40%人物，但留下了巨大的时间范围）
-  - ✅ 好："此人的成就与文字/语言有关"（包含诗人、作家、翻译家、书法家等大量可能）
-  - ❌ 差："此人是11世纪的中国人"（两个维度叠加，范围缩太小）
-  - ❌ 差："此人是欧洲科学家"（太窄了）
-- 第4-6条：中等粒度，可以组合1-2个维度
-- 第7-8条：最具体的线索，第8条必须涉及姓名，category必须是"姓名"
+秘密人物：${figure.name_cn}${figure.name_en ? ' / ' + figure.name_en : ''}
+时代：${figure.era}，地域：${figure.region}
+身份：${figure.identity}
+主要成就：${figure.achievement}
 
-### category字段规则
-- 从"时代、地域、领域、成就类型、个人经历、同时代关联、文化符号、性别、知名度、结局/命运、外貌特征、名言/典故、姓名"中选择一个最贴切的
-- 最后一道线索的category必须是"姓名"
+## 玩家已掌握的信息
+这是第${hintsRevealed + 1}条线索（共${maxHints}条）。线索绝对不能重复以下已知信息！
 
-### 具体示例（以秦始皇为例）
-好的线索序列（随机维度）：
-  {"category": "时代", "content": "此人活跃于公元前的某个时期"}
-  {"category": "影响力", "content": "此人的影响超出了他所在的地域，波及整个文化圈"}
-  {"category": "事迹", "content": "此人与大规模建设/工程有关"}
-  {"category": "成就", "content": "此人建立了一套影响深远的制度"}
-  {"category": "文化符号", "content": "此人所在地区有一种流行的饮品与此人时代有关"}
-  {"category": "成就", "content": "此人统一了多个分散的政权"}
-  {"category": "姓名", "content": "此人的名字中有一个字意为'开始'"}
-  {"category": "姓名", "content": "此人姓嬴"}
+人物画像（通过提问确认）：
+${portraitStr}
 
-差的线索序列（信息重叠/固定顺序）：
-  {"category": "时代", "content": "此人活跃于公元前3世纪"}（太精确）
-  {"category": "地域", "content": "此人来自东亚"}（与第1条组合后范围太小）`;
+问答历史：
+${qaStr}
+
+## 线索生成规则
+
+1. **绝对不重复已知信息**：如果玩家已知"此人活跃于公元前"，线索不能再说"此人活跃于公元100年之前"或"此人是古代人"——玩家已经知道了，没有提供新信息。必须从完全不同的维度切入。
+
+2. **信息量控制**：
+   - 前几条线索：粗粒度，从单一维度切入，每个线索最多排除约30%的全球人物
+   - 中间线索：中等粒度，可组合维度
+   - 最后1-2条：较具体，可涉及关键特征${isLast ? '\n   - 这是最后一条线索，必须涉及姓名特征' : ''}
+
+3. **维度选择**：从以下维度中选一个与已知信息不重叠的：时代、地域、领域、成就类型、个人经历、同时代关联、文化符号、性别、知名度、结局/命运、外貌特征、名言/典故、姓名特征
+
+   **时间线索规则（重要）**：给出时代线索时，不能与地域绑定。只能用以下两种方式之一：
+   - 绝对时间：如"活跃于公元2世纪前后""出生于公元700年之前""卒于公元前4世纪"
+   - 时代/时期名称：如"唐朝时期""中世纪""文艺复兴时期"——但必须明确说明该时期覆盖全球范围（如"此人活跃的时期，若在中国则是唐朝"或"此人活跃于中世纪，这一时期全球各地都有重要人物"）
+   - 禁止：直接说"是中国古代人物""是唐朝人"这种把时代和地域绑定的表述——时代线索就只说时代，地域信息留给地域维度
+
+4. **自检**：生成前确认——已知信息中是否已包含此线索的全部信息？如果是，换维度。
+
+请严格按JSON格式输出，不要输出其他内容：
+{"category":"维度名","content":"线索内容"}`;
 };
 
 // === AI Host: Question Answering (4-option) ===
@@ -341,7 +342,7 @@ PROMPTS.aiHostReview = (won, figure, hintsRevealed, maxHints, guessesUsed, guess
     return `游戏结束！玩家成功猜出了你选择的历史人物。
 
 现在进入复盘阶段。请回顾整个游戏过程：
-- 秘密人物：${figure.name_cn} / ${figure.name_en}
+- 秘密人物：${figure.name_cn}${figure.name_en ? ' / ' + figure.name_en : ''}
 - 你给出了${hintsRevealed}条线索（共${maxHints}条可用）
 - 玩家猜错过的人物：${guessedFigures.join('、') || '无'}
 - 最终得分：${finalScore}分
@@ -357,7 +358,7 @@ PROMPTS.aiHostReview = (won, figure, hintsRevealed, maxHints, guessesUsed, guess
     return `游戏结束！玩家选择了放弃。
 
 现在进入复盘阶段。请回顾整个游戏过程：
-- 秘密人物：${figure.name_cn} / ${figure.name_en}
+- 秘密人物：${figure.name_cn}${figure.name_en ? ' / ' + figure.name_en : ''}
 - 时代：${figure.era}，地域：${figure.region}
 - 身份：${figure.identity}，主要成就：${figure.achievement}
 - 你给出了${hintsRevealed}条线索（共${maxHints}条可用）

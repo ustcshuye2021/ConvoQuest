@@ -1,5 +1,187 @@
 /* App Entry Point - Event Binding & Screen Routing */
 
+// === Settings Module ===
+const Settings = {
+  theme: 'light',
+  fontFamily: 'serif',
+  fontSize: 'medium',
+
+  init() {
+    // Load saved settings
+    try {
+      this.theme = localStorage.getItem('settings_theme') || 'light';
+      this.fontFamily = localStorage.getItem('settings_font') || 'serif';
+      this.fontSize = localStorage.getItem('settings_size') || 'medium';
+    } catch { }
+
+    this.applyTheme(this.theme);
+    this.applyFont(this.fontFamily);
+    this.applySize(this.fontSize);
+    this.updateApiStatus();
+
+    // Listen to system theme changes
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (this.theme === 'system') {
+          document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+        }
+      });
+    }
+  },
+
+  open() {
+    $('#settings-overlay').classList.add('open');
+    this.syncUI();
+  },
+
+  close() {
+    $('#settings-overlay').classList.remove('open');
+  },
+
+  syncUI() {
+    // Theme buttons
+    $$('.settings-theme-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === this.theme);
+    });
+    // Font select
+    $('#settings-font-family').value = this.fontFamily;
+    // Size buttons
+    $$('.settings-size-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.size === this.fontSize);
+    });
+    // Sync API forms from GameState
+    if (GameState.customBaseUrl) {
+      $$('.settings-api-tab').forEach(t => t.classList.toggle('active', t.dataset.sapiTab === 'custom'));
+      $('#settings-preset-form').classList.add('hidden');
+      $('#settings-custom-form').classList.remove('hidden');
+      $('#settings-custom-base-url').value = GameState.customBaseUrl;
+      $('#settings-custom-model').value = GameState.model;
+      $('#settings-custom-key').value = GameState.apiKey;
+    } else {
+      $$('.settings-api-tab').forEach(t => t.classList.toggle('active', t.dataset.sapiTab === 'preset'));
+      $('#settings-preset-form').classList.remove('hidden');
+      $('#settings-custom-form').classList.add('hidden');
+      $('#settings-preset-provider').value = GameState.model;
+      $('#settings-preset-key').value = GameState.apiKey;
+    }
+    this.updateApiStatus();
+  },
+
+  applyTheme(theme) {
+    this.theme = theme;
+    try { localStorage.setItem('settings_theme', theme); } catch {}
+
+    if (theme === 'system') {
+      const isDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  },
+
+  applyFont(font) {
+    this.fontFamily = font;
+    try { localStorage.setItem('settings_font', font); } catch {}
+
+    const root = document.documentElement;
+    if (font === 'serif') {
+      root.style.setProperty('--font-serif', '"Noto Serif SC", "Songti SC", Georgia, "Times New Roman", serif');
+      root.style.setProperty('--font-sans', '"Noto Serif SC", "Songti SC", Georgia, "Times New Roman", serif');
+    } else if (font === 'sans') {
+      root.style.setProperty('--font-serif', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+      root.style.setProperty('--font-sans', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+    } else {
+      root.style.setProperty('--font-serif', 'system-ui, -apple-system, sans-serif');
+      root.style.setProperty('--font-sans', 'system-ui, -apple-system, sans-serif');
+    }
+  },
+
+  applySize(size) {
+    this.fontSize = size;
+    try { localStorage.setItem('settings_size', size); } catch {}
+
+    const sizes = { small: '14px', medium: '16px', large: '18px' };
+    document.documentElement.style.fontSize = sizes[size] || '16px';
+  },
+
+  updateApiStatus() {
+    const status = $('#settings-api-status');
+    if (GameState.apiKey && GameState.model) {
+      const modelName = GameState.customBaseUrl
+        ? `${GameState.model}（自定义）`
+        : GameState.model;
+      status.textContent = `当前：${modelName}`;
+      status.classList.add('connected');
+    } else {
+      status.textContent = '当前未配置模型';
+      status.classList.remove('connected');
+    }
+  },
+
+  usePresetModel() {
+    const model = $('#settings-preset-provider').value;
+    const key = $('#settings-preset-key').value.trim();
+    if (!model) { alert('请先选择模型'); return; }
+    if (!key) { alert('请输入 API Key'); return; }
+
+    GameState.model = model;
+    GameState.apiKey = key;
+    GameState.customBaseUrl = '';
+    GameState.useBuiltIn = false;
+
+    try {
+      localStorage.setItem('preset_model', model);
+      localStorage.setItem('preset_key', key);
+    } catch {}
+
+    this.updateApiStatus();
+    const btn = $('#btn-settings-use-preset');
+    const orig = btn.textContent;
+    btn.textContent = '✓ 已选择';
+    setTimeout(() => btn.textContent = orig, 1500);
+
+    // Also sync welcome screen inputs
+    try {
+      $('#preset-provider').value = model;
+      $('#preset-api-key').value = key;
+    } catch {}
+  },
+
+  useCustomModel() {
+    const baseUrl = $('#settings-custom-base-url').value.trim();
+    const modelName = $('#settings-custom-model').value.trim();
+    const key = $('#settings-custom-key').value.trim();
+
+    if (!baseUrl) { alert('请输入 Base URL'); return; }
+    if (!modelName) { alert('请输入模型名'); return; }
+    if (!key) { alert('请输入 API Key'); return; }
+
+    GameState.model = modelName;
+    GameState.apiKey = key;
+    GameState.customBaseUrl = baseUrl;
+    GameState.useBuiltIn = false;
+
+    try {
+      localStorage.setItem('custom_base_url', baseUrl);
+      localStorage.setItem('custom_model', modelName);
+      localStorage.setItem('custom_key', key);
+    } catch {}
+
+    this.updateApiStatus();
+    const btn = $('#btn-settings-use-custom');
+    const orig = btn.textContent;
+    btn.textContent = '✓ 已选择';
+    setTimeout(() => btn.textContent = orig, 1500);
+
+    // Also sync welcome screen inputs
+    try {
+      $('#custom-base-url').value = baseUrl;
+      $('#custom-model-name').value = modelName;
+      $('#custom-api-key').value = key;
+    } catch {}
+  }
+};
+
 // Game definitions - add new games here
 const GAMES = {
   history: {
@@ -255,6 +437,73 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedCustomKey) $('#custom-api-key').value = savedCustomKey;
   } catch {}
 
+  // Initialize settings (theme, font, etc.)
+  Settings.init();
+
+  // === Settings Panel Events ===
+  $('#btn-hall-settings').addEventListener('click', () => Settings.open());
+  $$('.btn-open-settings').forEach(btn => {
+    btn.addEventListener('click', () => Settings.open());
+  });
+  $('#settings-backdrop').addEventListener('click', () => Settings.close());
+  $('#settings-close-btn').addEventListener('click', () => Settings.close());
+
+  // Theme buttons
+  $$('.settings-theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      Settings.applyTheme(btn.dataset.theme);
+      btn.classList.add('active');
+      $$('.settings-theme-btn').forEach(b => { if (b !== btn) b.classList.remove('active'); });
+    });
+  });
+
+  // Font family
+  $('#settings-font-family').addEventListener('change', () => {
+    Settings.applyFont($('#settings-font-family').value);
+  });
+
+  // Font size buttons
+  $$('.settings-size-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      Settings.applySize(btn.dataset.size);
+      btn.classList.add('active');
+      $$('.settings-size-btn').forEach(b => { if (b !== btn) b.classList.remove('active'); });
+    });
+  });
+
+  // API tabs in settings
+  $$('.settings-api-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.settings-api-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.sapiTab;
+      $('#settings-preset-form').classList.toggle('hidden', target !== 'preset');
+      $('#settings-custom-form').classList.toggle('hidden', target !== 'custom');
+    });
+  });
+
+  // Toggle key visibility in settings
+  $('#btn-toggle-settings-preset-key').addEventListener('click', () => {
+    const inp = $('#settings-preset-key');
+    const btn = $('#btn-toggle-settings-preset-key');
+    const isPw = inp.type === 'password';
+    inp.type = isPw ? 'text' : 'password';
+    btn.textContent = isPw ? '🙈' : '👁';
+  });
+  $('#btn-toggle-settings-custom-key').addEventListener('click', () => {
+    const inp = $('#settings-custom-key');
+    const btn = $('#btn-toggle-settings-custom-key');
+    const isPw = inp.type === 'password';
+    inp.type = isPw ? 'text' : 'password';
+    btn.textContent = isPw ? '🙈' : '👁';
+  });
+
+  // Use preset model in settings
+  $('#btn-settings-use-preset').addEventListener('click', () => Settings.usePresetModel());
+
+  // Use custom model in settings
+  $('#btn-settings-use-custom').addEventListener('click', () => Settings.useCustomModel());
+
   // === Game Hall ===
   $$('.game-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -296,15 +545,11 @@ document.addEventListener('DOMContentLoaded', () => {
     AIHostMode.cancelBlindGuess();
   });
 
-  $('#btn-host-hint').addEventListener('click', () => {
+  $('#btn-host-hint').addEventListener('click', async () => {
     if (!GameState.host.gameOver) {
-      const maxHints = GameState.getMaxHints();
-      if (GameState.host.hintsRevealed < maxHints) {
-        const nextLevel = GameState.host.hintsRevealed + 1;
-        AIHostMode.revealHint();
-        addMsg($('#host-chat-area'), `📜 已揭示第 ${GameState.host.hintsRevealed} 条线索（扣除 ${nextLevel} 分）`, 'system');
-      } else {
-        addMsg($('#host-chat-area'), '所有线索已用完！', 'system');
+      const revealed = await AIHostMode.revealHint();
+      if (revealed) {
+        addMsg($('#host-chat-area'), `📜 已揭示第 ${GameState.host.hintsRevealed} 条线索（扣除 ${GameState.host.hintsRevealed} 分）`, 'system');
       }
     }
   });

@@ -73,7 +73,10 @@
 
       <!-- Step 1: Select Game -->
       <div id="hall-game-select">
-        <h2 class="hall-title">选择游戏</h2>
+        <div class="hall-header">
+          <h2>选择游戏</h2>
+          <button id="btn-hall-settings" class="btn-settings" title="设置">⚙️</button>
+        </div>
         <div class="game-grid">
           <div class="game-card" data-game="history">
             <div class="game-card-icon">🏛️</div>
@@ -110,7 +113,7 @@
     <div class="host-layout">
       <!-- Left: Stats + Actions + Clues + Portrait -->
       <aside class="host-sidebar">
-        <div class="sidebar-title">🎯 AI 出题 <span id="host-difficulty-badge" class="badge"></span></div>
+        <div class="sidebar-title">🎯 AI 出题 <span id="host-difficulty-badge" class="badge"></span> <button class="btn-settings btn-open-settings" title="设置">⚙️</button></div>
 
         <!-- Stats row: all in one line -->
         <div class="host-stats-row">
@@ -130,7 +133,7 @@
         <div class="panel-section">
           <div class="panel-heading">📜 已揭示线索</div>
           <div id="host-hints-area">
-            <div id="host-hints-empty" class="panel-empty">暂无线索</div>
+            <div id="host-hints-empty" class="panel-empty">点击提示获取线索</div>
           </div>
         </div>
 
@@ -179,7 +182,7 @@
     <div class="guess-layout">
       <!-- Left: Portrait/Reasoning Panel -->
       <aside class="guess-sidebar">
-        <div class="sidebar-title">🤔 AI 来猜</div>
+        <div class="sidebar-title">🤔 AI 来猜 <button class="btn-settings btn-open-settings" title="设置">⚙️</button></div>
         <div class="sidebar-stats">
           <div class="stat-row">
             <span>❓ 提问</span>
@@ -224,7 +227,7 @@
         </div>
 
         <div id="guess-answer-area" class="answer-area">
-          <button id="btn-ready" class="btn-primary">准备好了 / Ready</button>
+          <button id="btn-ready" class="btn-primary">准备好了</button>
         </div>
         <div id="guess-response-area" class="answer-area hidden">
           <button class="btn-answer" data-answer="是">✅ 是</button>
@@ -285,7 +288,7 @@
     <div class="turtle-host-layout">
       <!-- Left: Surface + Known Info -->
       <aside class="turtle-host-sidebar">
-        <div class="sidebar-title">🍲 海龟汤 · AI出题 <span id="turtle-host-badge" class="badge"></span></div>
+        <div class="sidebar-title">🍲 海龟汤 · AI出题 <span id="turtle-host-badge" class="badge"></span> <button class="btn-settings btn-open-settings" title="设置">⚙️</button></div>
         <div class="sidebar-stats">
           <div class="stat-row">
             <span>❓ 提问</span>
@@ -353,7 +356,7 @@
   <section id="screen-turtle-guess" class="screen">
     <div class="guess-layout">
       <aside class="guess-sidebar">
-        <div class="sidebar-title">🍲 海龟汤 · AI猜</div>
+        <div class="sidebar-title">🍲 海龟汤 · AI猜 <button class="btn-settings btn-open-settings" title="设置">⚙️</button></div>
         <div class="sidebar-stats">
           <div class="stat-row">
             <span>❓ 提问</span>
@@ -371,7 +374,7 @@
         </div>
 
         <div id="turtle-guess-surface-box" class="surface-box hidden" style="margin-bottom:12px">
-          <div class="surface-label">🍜 汤面 / Surface</div>
+          <div class="surface-label">🍜 汤面</div>
           <div id="turtle-guess-surface-display" style="font-size:0.9rem"></div>
         </div>
 
@@ -447,6 +450,102 @@
       </div>
     </div>
   </section>
+
+  <!-- Settings Overlay -->
+  <div id="settings-overlay" class="settings-overlay">
+    <div class="settings-backdrop" id="settings-backdrop"></div>
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h2>⚙️ 设置</h2>
+        <button id="settings-close-btn" class="settings-close">✕</button>
+      </div>
+      <div class="settings-body">
+
+        <!-- Theme -->
+        <div class="settings-section">
+          <div class="settings-section-title">🎨 主题风格</div>
+          <div class="settings-theme-group">
+            <button class="settings-theme-btn" data-theme="light">
+              <span class="theme-icon">☀️</span>亮色
+            </button>
+            <button class="settings-theme-btn" data-theme="dark">
+              <span class="theme-icon">🌙</span>暗色
+            </button>
+            <button class="settings-theme-btn" data-theme="system">
+              <span class="theme-icon">💻</span>跟随系统
+            </button>
+          </div>
+        </div>
+
+        <!-- Font -->
+        <div class="settings-section">
+          <div class="settings-section-title">📝 字体设置</div>
+          <div class="settings-font-row">
+            <label>字体</label>
+            <select id="settings-font-family">
+              <option value="serif">衬线体（古典风格）</option>
+              <option value="sans">无衬线体（现代风格）</option>
+              <option value="system">系统默认</option>
+            </select>
+          </div>
+          <div class="settings-font-row">
+            <label>字号</label>
+            <div class="settings-size-group">
+              <button class="settings-size-btn" data-size="small">小</button>
+              <button class="settings-size-btn" data-size="medium">中</button>
+              <button class="settings-size-btn" data-size="large">大</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- API -->
+        <div class="settings-section">
+          <div class="settings-section-title">🤖 AI 模型</div>
+          <div id="settings-api-status" class="settings-status">当前未配置模型</div>
+          <div class="settings-api-tabs">
+            <button class="settings-api-tab active" data-sapi-tab="preset">官方预设</button>
+            <button class="settings-api-tab" data-sapi-tab="custom">自定义</button>
+          </div>
+
+          <div id="settings-preset-form" class="settings-api-form">
+            <select id="settings-preset-provider">
+              <option value="" disabled selected>选择模型</option>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-v4-flash">DeepSeek V4 Flash（快速）</option>
+                <option value="deepseek-v4-pro">DeepSeek V4 Pro（更强）</option>
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+              </optgroup>
+              <optgroup label="阿里云">
+                <option value="qwen-plus">通义千问 Plus</option>
+              </optgroup>
+              <optgroup label="月之暗面">
+                <option value="moonshot-v1-auto">Kimi</option>
+              </optgroup>
+            </select>
+            <div class="settings-api-row">
+              <input type="password" id="settings-preset-key" placeholder="API Key" autocomplete="off">
+              <button id="btn-toggle-settings-preset-key" class="settings-api-btn">👁</button>
+            </div>
+            <button id="btn-settings-use-preset" class="settings-save-btn">使用此模型</button>
+          </div>
+
+          <div id="settings-custom-form" class="settings-api-form hidden">
+            <input type="text" id="settings-custom-base-url" placeholder="Base URL（如 https://api.openai.com）" autocomplete="off">
+            <input type="text" id="settings-custom-model" placeholder="模型名（如 gpt-4o）" autocomplete="off">
+            <div class="settings-api-row">
+              <input type="password" id="settings-custom-key" placeholder="API Key" autocomplete="off">
+              <button id="btn-toggle-settings-custom-key" class="settings-api-btn">👁</button>
+            </div>
+            <button id="btn-settings-use-custom" class="settings-save-btn">使用此模型</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>

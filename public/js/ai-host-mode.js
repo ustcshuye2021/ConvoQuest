@@ -74,7 +74,7 @@ const AIHostMode = {
 
       GameState.host.secretFigure = figure;
       GameState.messages = [
-        { role: 'system', content: PROMPTS.aiHostSystem + '\n\n你选择的人物是：' + figure.name_cn + ' / ' + figure.name_en + '\n时代：' + figure.era + '\n地域：' + figure.region + '\n身份：' + figure.identity + '\n成就：' + figure.achievement },
+        { role: 'system', content: PROMPTS.aiHostSystem + '\n\n你选择的人物是：' + figure.name_cn + (figure.name_en ? ' / ' + figure.name_en : '') + '\n时代：' + figure.era + '\n地域：' + figure.region + '\n身份：' + figure.identity + '\n成就：' + figure.achievement },
         { role: 'assistant', content: '好，我已经选好了一个历史人物。让我们开始吧！' }
       ];
 
@@ -85,11 +85,9 @@ const AIHostMode = {
         `你可以：\n` +
         `• 提问（我只会回答「是/否/是也不是/正史无记载」）\n` +
         `• 直接说出人名来猜测（如「达芬奇」「是牛顿吗」）\n` +
-        `• 🎲 盲猜（你有 ${blindTotal} 次盲猜机会，猜错不扣分）`,
+        `• 🎲 盲猜（你有 ${blindTotal} 次盲猜机会，猜错不扣分）\n` +
+        `• 📜 提示（点击提示按钮获取线索，每条线索扣分）`,
         'ai');
-
-      // Reveal first hint
-      this.revealHint();
 
     } catch (err) {
       hideLoading('host-loading');
@@ -97,30 +95,51 @@ const AIHostMode = {
     }
   },
 
-  revealHint() {
+  async revealHint() {
     const host = GameState.host;
     const maxHints = GameState.getMaxHints();
     if (host.hintsRevealed >= maxHints) {
       addMsg($('#host-chat-area'), '所有线索已用完！', 'system');
-      return;
+      return false;
     }
 
-    const oldScore = host.score;
-    host.hintsRevealed++;
-    const level = host.hintsRevealed;
+    showLoading('host-loading');
+    try {
+      const hintPrompt = PROMPTS.generateHint(
+        host.secretFigure, host.portrait, host.qaHistory,
+        host.hintsRevealed, maxHints
+      );
+      const raw = await chatFull(
+        [{ role: 'user', content: hintPrompt }],
+        GameState.apiKey
+      );
 
-    // Deduct score: clue N costs N points
-    host.score = Math.max(0, host.score - level);
-
-    const hints = host.secretFigure.hints;
-    if (hints) {
-      const h = Array.isArray(hints) ? hints[level - 1] : { content: hints[`L${level}`] };
-      if (h) {
-        addHintCard($('#host-hints-area'), level, h.content || h, h.category);
+      let hint;
+      try {
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('无法解析');
+        hint = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        hideLoading('host-loading');
+        addMsg($('#host-chat-area'), '生成线索失败，请重试。', 'system');
+        return false;
       }
+
+      const oldScore = host.score;
+      host.hintsRevealed++;
+      const level = host.hintsRevealed;
+      host.score = Math.max(0, host.score - level);
+
+      addHintCard($('#host-hints-area'), level, hint.content, hint.category);
+      updateHostStats();
+      updateHostScore(oldScore);
+      hideLoading('host-loading');
+      return true;
+    } catch (err) {
+      hideLoading('host-loading');
+      addMsg($('#host-chat-area'), '生成线索出错: ' + err.message, 'system');
+      return false;
     }
-    updateHostStats();
-    updateHostScore(oldScore);
   },
 
   // --- Blind Guess ---
@@ -204,14 +223,11 @@ const AIHostMode = {
     $('#host-input').value = '';
     addMsg($('#host-chat-area'), trimmed, 'user');
 
-    if (trimmed === '提示' || trimmed.toLowerCase() === 'hint') {
-      const maxHints = GameState.getMaxHints();
-      if (host.hintsRevealed >= maxHints) {
-        addMsg($('#host-chat-area'), '所有线索已用完！', 'system');
-        return;
+    if (trimmed === '提示') {
+      const revealed = await this.revealHint();
+      if (revealed) {
+        addMsg($('#host-chat-area'), `📜 已揭示第 ${host.hintsRevealed} 条线索（扣除 ${host.hintsRevealed} 分）`, 'system');
       }
-      this.revealHint();
-      addMsg($('#host-chat-area'), `📜 已揭示第 ${host.hintsRevealed} 条线索（扣除 ${host.hintsRevealed} 分）`, 'system');
       return;
     }
 
@@ -252,27 +268,27 @@ const AIHostMode = {
           this.endGame(true);
           return;
         } else if (response.result === 'CLOSE') {
-          const msgDiv = addMsg($('#host-chat-area'), '', 'close');
           const maxHints = GameState.getMaxHints();
           if (host.hintsRevealed < maxHints) {
-            this.revealHint();
-            msgDiv.textContent = '🔶 很接近了！方向对了，但不是这个人。已揭示新线索。';
+            await this.revealHint();
+            const msgDiv = addMsg($('#host-chat-area'), '🔶 很接近了！方向对了，已揭示新线索。', 'close');
+            shake(msgDiv);
           } else {
-            msgDiv.textContent = '🔶 很接近了！但不是这个人。';
+            const msgDiv = addMsg($('#host-chat-area'), '🔶 很接近了！但不是这个人。', 'close');
+            shake(msgDiv);
           }
-          shake(msgDiv);
           return;
         } else {
-          const msgDiv = addMsg($('#host-chat-area'), '', 'wrong');
           const maxHints = GameState.getMaxHints();
           if (host.hintsRevealed < maxHints) {
-            this.revealHint();
-            msgDiv.textContent = '❌ 不对。已揭示新线索。';
+            await this.revealHint();
+            const msgDiv = addMsg($('#host-chat-area'), '❌ 不对，已揭示新线索。', 'wrong');
+            shake(msgDiv);
           } else {
-            msgDiv.textContent = '❌ 不对。';
+            const msgDiv = addMsg($('#host-chat-area'), '❌ 不对。', 'wrong');
+            shake(msgDiv);
           }
           host.guessedFigures.push(trimmed);
-          shake(msgDiv);
           return;
         }
       }
@@ -381,18 +397,18 @@ const AIHostMode = {
     const title = this.getTitle(finalScore, GameState.difficulty);
 
     if (won) {
-      $('#result-title').textContent = '🎉 恭喜猜对了！/ Congratulations!';
+      $('#result-title').textContent = '🎉 恭喜猜对了！';
     } else {
-      $('#result-title').textContent = '😔 游戏结束 / Game Over';
+      $('#result-title').textContent = '😔 游戏结束';
     }
 
-    $('#result-name').textContent = `${fig.name_cn} / ${fig.name_en}`;
+    $('#result-name').textContent = fig.name_cn + (fig.name_en ? ` / ${fig.name_en}` : '');
     $('#result-details').innerHTML = `
-      <p>📅 时代 / Era: ${fig.era}</p>
-      <p>📍 地域 / Region: ${fig.region}</p>
-      <p>🏛️ 身份 / Identity: ${fig.identity}</p>
-      <p>⭐ 成就 / Achievement: ${fig.achievement}</p>
-      <p>📖 简介 / Bio: ${fig.bio}</p>
+      <p>📅 时代：${fig.era}</p>
+      <p>📍 地域：${fig.region}</p>
+      <p>🏛️ 身份：${fig.identity}</p>
+      <p>⭐ 成就：${fig.achievement}</p>
+      <p>📖 简介：${fig.bio}</p>
     `;
 
     const maxHints = GameState.getMaxHints();
@@ -403,10 +419,10 @@ const AIHostMode = {
     const blindUsed = host.blindGuessesTotal - host.blindGuessesLeft;
 
     $('#result-stats').innerHTML = `
-      <p>📜 使用线索 / Hints: ${hintsUsed}/${maxHints}（扣除 ${totalHintCost} 分）</p>
-      <p>❓ 提问次数 / Questions: ${host.questionsAsked}（扣除 ${questionCost.toFixed(1)} 分）</p>
-      <p>🎲 盲猜使用 / Blind guesses: ${blindUsed}/${host.blindGuessesTotal}（不扣分）</p>
-      <p>💰 最终得分 / Score: <strong>${finalScore}</strong> / 100</p>
+      <p>📜 使用线索：${hintsUsed}/${maxHints}（扣除 ${totalHintCost} 分）</p>
+      <p>❓ 提问次数：${host.questionsAsked}（扣除 ${questionCost.toFixed(1)} 分）</p>
+      <p>🎲 盲猜使用：${blindUsed}/${host.blindGuessesTotal}（不扣分）</p>
+      <p>💰 最终得分：<strong>${finalScore}</strong> / 100</p>
     `;
     $('#result-rating').innerHTML = `🏆 称号：${title}`;
 
