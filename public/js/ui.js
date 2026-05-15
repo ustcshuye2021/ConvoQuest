@@ -3,6 +3,15 @@
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
 
+function renderMarkdown(text) {
+  if (!text) return '';
+  try {
+    return marked.parse(text, { breaks: true });
+  } catch {
+    return text.replace(/\n/g, '<br>');
+  }
+}
+
 function showScreen(id) {
   $$('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
@@ -14,7 +23,11 @@ function showScreen(id) {
 function addMsg(container, text, type) {
   const div = document.createElement('div');
   div.className = `msg msg-${type}`;
-  div.textContent = text;
+  if (type === 'ai') {
+    div.innerHTML = renderMarkdown(text);
+  } else {
+    div.textContent = text;
+  }
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   return div;
@@ -39,7 +52,14 @@ function streamMsg(container, type) {
 }
 
 function appendToMsg(div, text) {
-  div.textContent += text;
+  if (div.classList.contains('msg-ai')) {
+    const current = div.dataset.raw || '';
+    const updated = current + text;
+    div.dataset.raw = updated;
+    div.innerHTML = renderMarkdown(updated);
+  } else {
+    div.textContent += text;
+  }
   const container = div.parentElement;
   requestAnimationFrame(() => {
     container.scrollTop = container.scrollHeight;

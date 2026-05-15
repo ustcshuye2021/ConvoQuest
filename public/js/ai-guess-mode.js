@@ -279,7 +279,9 @@ const AIGuessMode = {
         (text) => {
           GameState.messages.push({ role: 'assistant', content: text });
           this.parseResponse(text);
-          div.textContent = stripJsonLine(text);
+          const display = stripJsonLine(text);
+          div.dataset.raw = display;
+          div.innerHTML = renderMarkdown(display);
         }
       );
       hideLoading('guess-loading');

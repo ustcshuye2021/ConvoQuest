@@ -127,11 +127,9 @@ const TurtleHostMode = {
           GameState.messages.push({ role: 'assistant', content: text });
           const nlIdx = text.indexOf('\n');
           const display = nlIdx !== -1 ? text.substring(nlIdx + 1).replace(/^\s+/, '') : text;
-          if (!text.trimStart().startsWith('{')) {
-            div.textContent = text;
-          } else {
-            div.textContent = display;
-          }
+          const finalText = text.trimStart().startsWith('{') ? display : text;
+          div.dataset.raw = finalText;
+          div.innerHTML = renderMarkdown(finalText);
           this.parseAnswer(text, trimmed);
         }
       );
@@ -461,7 +459,9 @@ const TurtleGuessMode = {
         (text) => {
           GameState.messages.push({ role: 'assistant', content: text });
           this.parseResponse(text);
-          div.textContent = stripJsonLine(text);
+          const display = stripJsonLine(text);
+          div.dataset.raw = display;
+          div.innerHTML = renderMarkdown(display);
         }
       );
       hideLoading('turtle-guess-loading');
