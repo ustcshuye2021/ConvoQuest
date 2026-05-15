@@ -186,6 +186,25 @@ function updatePanel() {
 function showLoading(id) { document.getElementById(id)?.classList.remove('hidden'); }
 function hideLoading(id) { document.getElementById(id)?.classList.add('hidden'); }
 
+function cleanupFailedAIResponse(chatArea) {
+  const children = chatArea.children;
+  while (children.length > 0 && children[children.length - 1].classList.contains('msg-error')) {
+    children[children.length - 1].remove();
+  }
+  if (children.length > 0 && children[children.length - 1].classList.contains('msg-ai')) {
+    children[children.length - 1].remove();
+  }
+}
+
+function addRetryButton(errDiv, retryFn) {
+  const btn = document.createElement('button');
+  btn.textContent = '🔄 重试';
+  btn.className = 'btn-retry-inline';
+  btn.onclick = retryFn;
+  errDiv.appendChild(document.createTextNode(' '));
+  errDiv.appendChild(btn);
+}
+
 function shake(el) {
   el.classList.add('shake');
   setTimeout(() => el.classList.remove('shake'), 400);

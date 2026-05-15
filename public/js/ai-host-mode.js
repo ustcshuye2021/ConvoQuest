@@ -3,6 +3,7 @@
 const AIHostMode = {
   BASE_SCORE: 100,
   QUESTION_COST: 0.5,
+  _lastInput: null,
 
   // Title tiers — category-specific
   getTitle(score, difficulty, categoryId) {
@@ -230,7 +231,7 @@ const AIHostMode = {
 
   // --- Normal Input ---
 
-  async handleInput(userText) {
+  async handleInput(userText, isRetry = false) {
     const host = GameState.host;
     const categoryId = GameState.category;
     if (host.gameOver || !host.secretFigure) return;
@@ -238,8 +239,11 @@ const AIHostMode = {
     const trimmed = userText.trim();
     if (!trimmed) return;
 
-    $('#host-input').value = '';
-    addMsg($('#host-chat-area'), trimmed, 'user');
+    if (!isRetry) {
+      $('#host-input').value = '';
+      addMsg($('#host-chat-area'), trimmed, 'user');
+    }
+    this._lastInput = trimmed;
 
     if (trimmed === '提示') {
       const revealed = await this.revealHint();
@@ -334,8 +338,16 @@ const AIHostMode = {
       }
     } catch (err) {
       hideLoading('host-loading');
-      addMsg($('#host-chat-area'), '出错了: ' + err.message, 'system');
+      const errDiv = addMsg($('#host-chat-area'), '出错了: ' + err.message, 'system');
+      errDiv.classList.add('msg-error');
+      addRetryButton(errDiv, () => AIHostMode.retry());
     }
+  },
+
+  retry() {
+    if (!this._lastInput) return;
+    cleanupFailedAIResponse($('#host-chat-area'));
+    this.handleInput(this._lastInput, true);
   },
 
   endGame(won) {

@@ -2,6 +2,7 @@
 
 const AIGuessMode = {
   _thinking: false,
+  _lastPrompt: null,
 
   // --- UI Helpers ---
 
@@ -283,6 +284,7 @@ const AIGuessMode = {
   // --- Core Ask ---
 
   async askNext(userContent) {
+    this._lastPrompt = userContent;
     this._setThinking(true);
     showLoading('guess-loading');
 
@@ -337,9 +339,20 @@ const AIGuessMode = {
       }
     } catch (err) {
       hideLoading('guess-loading');
-      addMsg($('#guess-chat-area'), '出错了: ' + err.message, 'system');
+      const errDiv = addMsg($('#guess-chat-area'), '出错了: ' + err.message, 'system');
+      errDiv.classList.add('msg-error');
+      addRetryButton(errDiv, () => AIGuessMode.retry());
       this._showWaitingForAnswer();
     }
+  },
+
+  retry() {
+    if (!this._lastPrompt) return;
+    cleanupFailedAIResponse($('#guess-chat-area'));
+    if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') {
+      GameState.messages.pop();
+    }
+    this.askNext(this._lastPrompt);
   },
 
   parseResponse(text) {

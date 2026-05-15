@@ -3,6 +3,8 @@
 /* === AI Hosts Mode (AI出题 我来猜) === */
 
 const TurtleHostMode = {
+  _lastInput: null,
+
   async start(difficulty) {
     GameState.reset();
     GameState.mode = 'turtle-host';
@@ -64,15 +66,18 @@ const TurtleHostMode = {
     }
   },
 
-  async handleInput(text) {
+  async handleInput(text, isRetry = false) {
     const t = GameState.turtle;
     if (t.gameOver) return;
 
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    $('#turtle-host-input').value = '';
-    addMsg($('#turtle-host-chat'), trimmed, 'user');
+    if (!isRetry) {
+      $('#turtle-host-input').value = '';
+      addMsg($('#turtle-host-chat'), trimmed, 'user');
+    }
+    this._lastInput = trimmed;
 
     // Hint request
     if (trimmed === '提示' || trimmed === 'hint') {
@@ -86,11 +91,11 @@ const TurtleHostMode = {
       return;
     }
 
-    t.questionsAsked++;
-    updateTurtleHostStats();
-
-    // Track question for known info
-    t.lastQuestion = trimmed;
+    if (!isRetry) {
+      t.questionsAsked++;
+      updateTurtleHostStats();
+      t.lastQuestion = trimmed;
+    }
 
     // Send to AI
     showLoading('turtle-host-loading');
@@ -137,8 +142,22 @@ const TurtleHostMode = {
       $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
     } catch (err) {
       hideLoading('turtle-host-loading');
-      addMsg($('#turtle-host-chat'), '出错了: ' + err.message, 'system');
+      const errDiv = addMsg($('#turtle-host-chat'), '出错了: ' + err.message, 'system');
+      errDiv.classList.add('msg-error');
+      addRetryButton(errDiv, () => TurtleHostMode.retry());
     }
+  },
+
+  retry() {
+    if (!this._lastInput) return;
+    cleanupFailedAIResponse($('#turtle-host-chat'));
+    if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') {
+      GameState.messages.pop();
+    }
+    if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'user') {
+      GameState.messages.pop();
+    }
+    this.handleInput(this._lastInput, true);
   },
 
   async handleGuess(text) {
@@ -347,6 +366,8 @@ const TurtleHostMode = {
 /* === Player Hosts Mode (我出题 AI来猜) === */
 
 const TurtleGuessMode = {
+  _lastPrompt: null,
+
   async start() {
     GameState.reset();
     GameState.mode = 'turtle-guess';
@@ -470,6 +491,7 @@ const TurtleGuessMode = {
   },
 
   async askNext(userContent) {
+    this._lastPrompt = userContent;
     showLoading('turtle-guess-loading');
 
     function stripJsonLine(text) {
@@ -524,7 +546,9 @@ const TurtleGuessMode = {
       $('#turtle-guess-chat').scrollTop = $('#turtle-guess-chat').scrollHeight;
     } catch (err) {
       hideLoading('turtle-guess-loading');
-      addMsg($('#turtle-guess-chat'), '出错了: ' + err.message, 'system');
+      const errDiv = addMsg($('#turtle-guess-chat'), '出错了: ' + err.message, 'system');
+      errDiv.classList.add('msg-error');
+      addRetryButton(errDiv, () => TurtleGuessMode.retry());
     }
   },
 
@@ -654,6 +678,15 @@ const TurtleGuessMode = {
     $('#turtle-guess-reroll-area').classList.add('hidden');
     $('#turtle-guess-response-area').classList.remove('hidden');
     $('#turtle-guess-input-area').classList.remove('hidden');
+  },
+
+  retry() {
+    if (!this._lastPrompt) return;
+    cleanupFailedAIResponse($('#turtle-guess-chat'));
+    if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') {
+      GameState.messages.pop();
+    }
+    this.askNext(this._lastPrompt);
   },
 
   async onGuessWrong() {

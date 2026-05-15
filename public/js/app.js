@@ -807,6 +807,12 @@ document.addEventListener('DOMContentLoaded', () => {
     TurtleGuessMode.onRerollCancel();
   });
 
+  // Retry buttons
+  $('#btn-host-retry').addEventListener('click', () => AIHostMode.retry());
+  $('#btn-guess-retry').addEventListener('click', () => AIGuessMode.retry());
+  $('#btn-turtle-host-retry').addEventListener('click', () => TurtleHostMode.retry());
+  $('#btn-turtle-guess-retry').addEventListener('click', () => TurtleGuessMode.retry());
+
   // Turtle Guess review
   const turtleGuessReviewInput = $('#turtle-guess-review-input');
   $('#btn-turtle-guess-review-send').addEventListener('click', () => {
