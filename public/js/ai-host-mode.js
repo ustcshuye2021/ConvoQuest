@@ -280,9 +280,6 @@ const AIHostMode = {
       const answer = response.answer || '请重新提问';
       if (answer === '请重新提问') {
         addAnswerBadge($('#host-chat-area'), answer);
-        if (response.reason) {
-          addMsg($('#host-chat-area'), response.reason, 'system');
-        }
         addMsg($('#host-chat-area'), '（不计入提问次数，请换一种方式提问）', 'system');
       } else {
         host.questionsAsked++;
@@ -292,9 +289,6 @@ const AIHostMode = {
         updateHostScore(oldScore);
 
         addAnswerBadge($('#host-chat-area'), answer);
-        if (response.reason) {
-          addMsg($('#host-chat-area'), response.reason, 'ai');
-        }
 
         if (response.portrait && Object.keys(response.portrait).length > 0) {
           Object.assign(host.portrait, response.portrait);

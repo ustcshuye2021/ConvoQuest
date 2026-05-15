@@ -148,12 +148,14 @@ PROMPTS.aiHostAnswer = (figure, userInput, existingPortrait, questionsAsked) => 
 ## 回复格式（严格JSON，不要输出其他内容）
 
 提问时：
-{"type":"question","answer":"是/否/是也不是/正史无记载/请重新提问","portrait":{},"reason":"可选"}
+{"type":"question","answer":"是/否/是也不是/正史无记载/请重新提问","portrait":{}}
+
+注意：不要输出任何额外解释、提示或评论，只返回上述JSON。portrait无新增则为空{}。
 
 猜测时：
-{"type":"guess","result":"CORRECT/CLOSE/WRONG","reason":"可选"}
+{"type":"guess","result":"CORRECT/CLOSE/WRONG"}
 
-portrait规则（仅提问时填写，猜测时为{}）：
+portrait规则`（仅提问时填写，猜测时为{}）：
 - 从本次Q&A直接确定的人物信息
 - 类别：时代、地域、性别、领域、身份、事迹、生平、其他
 - 只提取直接确定的信息，不推断
