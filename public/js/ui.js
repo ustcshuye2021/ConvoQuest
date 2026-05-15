@@ -205,6 +205,40 @@ function addRetryButton(errDiv, retryFn) {
   errDiv.appendChild(btn);
 }
 
+function stripJsonMetadata(text) {
+  let result = text;
+  let safety = 0;
+  while (safety++ < 20) {
+    const braceIdx = result.indexOf('{');
+    if (braceIdx === -1) break;
+
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let i = braceIdx; i < result.length; i++) {
+      const ch = result[i];
+      if (esc) { esc = false; continue; }
+      if (ch === '\\') { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end === -1) break;
+
+    const candidate = result.substring(braceIdx, end + 1);
+    try {
+      const json = JSON.parse(candidate);
+      if (json.confidence !== undefined || json.confirmed_facts || json.key_insights ||
+          json.answer || json.question_number !== undefined || json.type || json.portrait || json.candidates) {
+        result = result.substring(0, braceIdx) + result.substring(end + 1);
+        continue;
+      }
+    } catch {}
+    // Not game metadata JSON - skip past this brace
+    break;
+  }
+  return result.replace(/\n\s*\n/g, '\n').trim();
+}
+
 function shake(el) {
   el.classList.add('shake');
   setTimeout(() => el.classList.remove('shake'), 400);

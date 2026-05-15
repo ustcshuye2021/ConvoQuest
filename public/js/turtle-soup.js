@@ -4,6 +4,7 @@
 
 const TurtleHostMode = {
   _lastInput: null,
+  _stateSnapshot: null,
 
   async start(difficulty) {
     GameState.reset();
@@ -98,6 +99,11 @@ const TurtleHostMode = {
     }
 
     // Send to AI
+    this._stateSnapshot = {
+      knownInfo: JSON.parse(JSON.stringify(t.knownInfo)),
+      confirmedFacts: [...t.confirmedFacts],
+    };
+
     showLoading('turtle-host-loading');
     const turnMsg = TURTLE_PROMPTS.hostTurn(
       t.puzzle.surface, t.puzzle.truth,
@@ -130,11 +136,9 @@ const TurtleHostMode = {
         },
         (text) => {
           GameState.messages.push({ role: 'assistant', content: text });
-          const nlIdx = text.indexOf('\n');
-          const display = nlIdx !== -1 ? text.substring(nlIdx + 1).replace(/^\s+/, '') : text;
-          const finalText = text.trimStart().startsWith('{') ? display : text;
-          div.dataset.raw = finalText;
-          div.innerHTML = renderMarkdown(finalText);
+          const display = stripJsonMetadata(text);
+          div.dataset.raw = display;
+          div.innerHTML = renderMarkdown(display);
           this.parseAnswer(text, trimmed);
         }
       );
@@ -156,6 +160,14 @@ const TurtleHostMode = {
     }
     if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'user') {
       GameState.messages.pop();
+    }
+    if (this._stateSnapshot) {
+      const s = this._stateSnapshot;
+      const t = GameState.turtle;
+      t.knownInfo = s.knownInfo;
+      t.confirmedFacts = s.confirmedFacts;
+      updateTurtleHostStats();
+      TurtleHostMode.updateKnownInfoPanel();
     }
     this.handleInput(this._lastInput, true);
   },
@@ -367,6 +379,7 @@ const TurtleHostMode = {
 
 const TurtleGuessMode = {
   _lastPrompt: null,
+  _stateSnapshot: null,
 
   async start() {
     GameState.reset();
@@ -492,15 +505,17 @@ const TurtleGuessMode = {
 
   async askNext(userContent) {
     this._lastPrompt = userContent;
-    showLoading('turtle-guess-loading');
 
-    function stripJsonLine(text) {
-      const nlIdx = text.indexOf('\n');
-      if (nlIdx === -1) {
-        return text.trimStart().startsWith('{') ? '' : text;
-      }
-      return text.substring(nlIdx + 1).replace(/^\s+/, '');
-    }
+    const t = GameState.turtle;
+    this._stateSnapshot = {
+      confirmedFacts: [...t.confirmedFacts],
+      keyInsights: [...t.keyInsights],
+      confidence: t.confidence,
+      lastQuestion: t.lastQuestion,
+      qaHistory: JSON.parse(JSON.stringify(t.qaHistory)),
+    };
+
+    showLoading('turtle-guess-loading');
 
     try {
       const div = streamMsg($('#turtle-guess-chat'), 'ai');
@@ -528,7 +543,7 @@ const TurtleGuessMode = {
         (text) => {
           GameState.messages.push({ role: 'assistant', content: text });
           this.parseResponse(text);
-          const display = stripJsonLine(text);
+          const display = stripJsonMetadata(text);
           div.dataset.raw = display;
           div.innerHTML = renderMarkdown(display);
           GameState.turtle.lastQuestion = display;
@@ -536,7 +551,7 @@ const TurtleGuessMode = {
       );
       hideLoading('turtle-guess-loading');
 
-      const displayText = stripJsonLine(fullText);
+      const displayText = stripJsonMetadata(fullText);
       if (displayText.includes('正式猜测') || displayText.includes('🎯')) {
         this.showGuessConfirmation(displayText);
       } else {
@@ -685,6 +700,16 @@ const TurtleGuessMode = {
     cleanupFailedAIResponse($('#turtle-guess-chat'));
     if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') {
       GameState.messages.pop();
+    }
+    if (this._stateSnapshot) {
+      const s = this._stateSnapshot;
+      const t = GameState.turtle;
+      t.confirmedFacts = s.confirmedFacts;
+      t.keyInsights = s.keyInsights;
+      t.confidence = s.confidence;
+      t.lastQuestion = s.lastQuestion;
+      t.qaHistory = s.qaHistory;
+      updateTurtleGuessStats();
     }
     this.askNext(this._lastPrompt);
   },

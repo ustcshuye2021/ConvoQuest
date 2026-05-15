@@ -3,6 +3,7 @@
 const AIGuessMode = {
   _thinking: false,
   _lastPrompt: null,
+  _stateSnapshot: null,
 
   // --- UI Helpers ---
 
@@ -286,13 +287,17 @@ const AIGuessMode = {
   async askNext(userContent) {
     this._lastPrompt = userContent;
     this._setThinking(true);
-    showLoading('guess-loading');
 
-    function stripJsonLine(text) {
-      const nlIdx = text.indexOf('\n');
-      if (nlIdx === -1) return text.trimStart().startsWith('{') ? '' : text;
-      return text.substring(nlIdx + 1).replace(/^\s+/, '');
-    }
+    const g = GameState.guess;
+    this._stateSnapshot = {
+      confirmedFacts: [...g.confirmedFacts],
+      topCandidates: [...g.topCandidates],
+      portrait: JSON.parse(JSON.stringify(g.portrait)),
+      confidence: g.confidence,
+      questionsHistory: [...g.questionsHistory],
+    };
+
+    showLoading('guess-loading');
 
     try {
       const div = streamMsg($('#guess-chat-area'), 'ai');
@@ -320,14 +325,14 @@ const AIGuessMode = {
         (text) => {
           GameState.messages.push({ role: 'assistant', content: text });
           this.parseResponse(text);
-          const display = stripJsonLine(text);
+          const display = stripJsonMetadata(text);
           div.dataset.raw = display;
           div.innerHTML = renderMarkdown(display);
         }
       );
       hideLoading('guess-loading');
 
-      const displayText = stripJsonLine(fullText);
+      const displayText = stripJsonMetadata(fullText);
       const isGuess = displayText.includes('正式猜测') || displayText.includes('🎯');
 
       if (isGuess) {
@@ -351,6 +356,17 @@ const AIGuessMode = {
     cleanupFailedAIResponse($('#guess-chat-area'));
     if (GameState.messages.length > 0 && GameState.messages[GameState.messages.length - 1].role === 'assistant') {
       GameState.messages.pop();
+    }
+    if (this._stateSnapshot) {
+      const s = this._stateSnapshot;
+      const g = GameState.guess;
+      g.confirmedFacts = s.confirmedFacts;
+      g.topCandidates = s.topCandidates;
+      g.portrait = s.portrait;
+      g.confidence = s.confidence;
+      g.questionsHistory = s.questionsHistory;
+      updateGuessStats();
+      updatePanel();
     }
     this.askNext(this._lastPrompt);
   },

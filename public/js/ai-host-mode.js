@@ -4,6 +4,7 @@ const AIHostMode = {
   BASE_SCORE: 100,
   QUESTION_COST: 0.5,
   _lastInput: null,
+  _stateSnapshot: null,
 
   // Title tiers — category-specific
   getTitle(score, difficulty, categoryId) {
@@ -258,6 +259,15 @@ const AIHostMode = {
       return;
     }
 
+    this._stateSnapshot = {
+      questionsAsked: host.questionsAsked,
+      score: host.score,
+      portrait: JSON.parse(JSON.stringify(host.portrait)),
+      qaHistory: [...host.qaHistory],
+      guessesUsed: host.guessesUsed,
+      guessedFigures: [...host.guessedFigures],
+    };
+
     showLoading('host-loading');
     try {
       const answerPrompt = PROMPTS.aiHostAnswer(
@@ -347,6 +357,20 @@ const AIHostMode = {
   retry() {
     if (!this._lastInput) return;
     cleanupFailedAIResponse($('#host-chat-area'));
+    if (this._stateSnapshot) {
+      const s = this._stateSnapshot;
+      const host = GameState.host;
+      host.questionsAsked = s.questionsAsked;
+      host.score = s.score;
+      host.portrait = s.portrait;
+      host.qaHistory = s.qaHistory;
+      host.guessesUsed = s.guessesUsed;
+      host.guessedFigures = s.guessedFigures;
+      const categoryId = GameState.category;
+      updateHostStats();
+      updateHostScore(s.score);
+      updateHostPortrait(categoryId);
+    }
     this.handleInput(this._lastInput, true);
   },
 
