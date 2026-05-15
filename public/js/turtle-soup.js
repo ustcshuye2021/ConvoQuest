@@ -373,14 +373,58 @@ const TurtleGuessMode = {
     $('#turtle-guess-setup').classList.add('hidden');
     $('#turtle-guess-surface-display').textContent = text;
     $('#turtle-guess-surface-box').classList.remove('hidden');
-    addMsg($('#turtle-guess-chat'), '汤面已收到！开始提问。', 'system');
 
     GameState.messages = [
       { role: 'system', content: TURTLE_PROMPTS.guessSystem }
     ];
 
-    // Ask first question
+    // First: analyze the surface and show reasoning
+    await this.analyzeSurface(text);
+
+    // Then: ask first question
+    addMsg($('#turtle-guess-chat'), '分析完毕，开始提问。', 'system');
     await this.askNext(TURTLE_PROMPTS.guessFirstTurn(text));
+  },
+
+  async analyzeSurface(surface) {
+    showLoading('turtle-guess-loading');
+    addMsg($('#turtle-guess-chat'), '正在分析汤面...', 'system');
+
+    try {
+      const raw = await chatFull(
+        [...GameState.messages, { role: 'user', content: TURTLE_PROMPTS.guessAnalyzeSurface(surface) }],
+        GameState.apiKey
+      );
+
+      // Parse JSON from first line
+      const lines = raw.split('\n');
+      const firstLine = lines[0].trim();
+      if (firstLine.startsWith('{')) {
+        try {
+          const json = JSON.parse(firstLine);
+          if (json.surface_analysis) {
+            GameState.turtle.keyInsights = json.surface_analysis;
+          }
+        } catch {}
+      }
+
+      // Show analysis text in chat (skip JSON line)
+      const displayText = firstLine.startsWith('{')
+        ? lines.slice(1).join('\n').trim()
+        : raw.trim();
+
+      if (displayText) {
+        const div = addMsg($('#turtle-guess-chat'), '', 'ai');
+        div.innerHTML = renderMarkdown('**🔍 汤面分析**\n\n' + displayText);
+      }
+
+      updateTurtleGuessStats();
+      GameState.messages.push({ role: 'assistant', content: raw });
+      hideLoading('turtle-guess-loading');
+    } catch (err) {
+      hideLoading('turtle-guess-loading');
+      addMsg($('#turtle-guess-chat'), '分析出错: ' + err.message, 'system');
+    }
   },
 
   async onAnswer(answer) {

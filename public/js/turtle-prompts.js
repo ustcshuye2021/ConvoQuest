@@ -175,6 +175,22 @@ ${answer}
 请继续提问或发起猜测。问题以「${questionsAsked + 1}. 」开头。`;
 };
 
+TURTLE_PROMPTS.guessAnalyzeSurface = (surface) => {
+  return `以下是玩家给出的海龟汤汤面：
+
+"${surface}"
+
+在提问之前，请先分析这个汤面。输出格式：
+第一行JSON：{"surface_analysis":["分析要点1","分析要点2","question_directions":["方向1","方向2"]}
+第二行：给用户看的分析内容（不要加序号，直接列出要点）
+
+分析内容应包括：
+1. 汤面中哪些看似不合理/矛盾的地方需要解释？（2-3条，简洁）
+2. 基于这些疑点，你打算优先探索哪些方向？（2-3条，简洁）
+
+请保持分析简洁，不要过度解读，为后续提问留出空间。`;
+};
+
 TURTLE_PROMPTS.guessFirstTurn = (surface) => {
   return `以下是玩家给出的海龟汤汤面：
 
