@@ -54,6 +54,7 @@ const GameState = {
     difficulty: null,
     maxQuestions: 20,
     maxGuesses: 3,
+    maxHints: 1,
     hintsRevealed: 0,
     questionsAsked: 0,
     guessesUsed: 0,
@@ -90,7 +91,7 @@ const GameState = {
     };
     this.turtle = {
       puzzle: null, surface: '', difficulty: null,
-      maxQuestions: 20, maxGuesses: 3,
+      maxQuestions: 20, maxGuesses: 3, maxHints: 1,
       hintsRevealed: 0,
       questionsAsked: 0, guessesUsed: 0,
       gameOver: false, won: false,

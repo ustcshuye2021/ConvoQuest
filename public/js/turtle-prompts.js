@@ -4,11 +4,12 @@ const TURTLE_PROMPTS = {};
 
 // === AI Hosts (AI出题 我来猜) ===
 
-TURTLE_PROMPTS.hostGenerate = (difficulty) => {
+TURTLE_PROMPTS.hostGenerate = (difficulty, maxHints = 4) => {
   const diffDesc = {
     easy: '简单——汤面较直白，真相容易被联想到日常生活场景，逻辑链短（1-2步推理即可破解）',
-    medium: '中等——汤面有一定迷惑性，需要多角度思考，逻辑链中等（2-3步推理）',
-    hard: '困难——汤面看似极度矛盾或诡异，真相出人意料，逻辑链长（3步以上推理），需要打破思维定式'
+    normal: '一般——汤面有一定迷惑性，需要多角度思考，逻辑链中等（2-3步推理）',
+    hard: '困难——汤面看似极度矛盾或诡异，真相出人意料，逻辑链长（3步以上推理），需要打破思维定式',
+    hell: '地狱——汤面极度诡异，真相极为出人意料，逻辑链复杂（4步以上推理），需要极强的推理能力和发散思维'
   };
   return `请为海龟汤游戏设计一道题目。
 
@@ -29,10 +30,7 @@ TURTLE_PROMPTS.hostGenerate = (difficulty) => {
   "genre": "类型（温情/悬疑/搞笑/反转/黑暗，选一个最贴切的）",
   "keywords": ["关键线索1", "关键线索2", "关键线索3"],
   "hints": {
-    "H1": "提示1：揭示故事类型或大方向",
-    "H2": "提示2：点出关键元素",
-    "H3": "提示3：揭示部分真相",
-    "H4": "提示4：重大线索，接近真相"
+    "H1": "提示1：揭示故事类型或大方向"${maxHints >= 2 ? ',\n    "H2": "提示2：点出关键元素"' : ''}${maxHints >= 3 ? ',\n    "H3": "提示3：揭示部分真相"' : ''}${maxHints >= 4 ? ',\n    "H4": "提示4：重大线索，接近真相"' : ''}${maxHints >= 5 ? ',\n    "H5": "提示5：更具体的线索"' : ''}${maxHints >= 6 ? ',\n    "H6": "提示6：接近真相的线索"' : ''}${maxHints >= 7 ? ',\n    "H7": "提示7：几乎揭晓真相"' : ''}
   },
   "summary": "一句话总结真相（用于最终揭晓）"
 }`;
@@ -79,11 +77,11 @@ confirmed_facts 是你根据玩家提问和你的回答整理出的已知信息�
 
 注意：猜测的回复不需要JSON行，直接回复评价。`;
 
-TURTLE_PROMPTS.hostTurn = (surface, truth, hintsRevealed, questionsAsked, maxQuestions) => {
+TURTLE_PROMPTS.hostTurn = (surface, truth, hintsRevealed, questionsAsked, maxQuestions, maxHints = 4) => {
   return `[内部状态 - 绝对不要在回复中提及]
 汤面：${surface}
 汤底：${truth}
-已揭示提示：${hintsRevealed}/4
+已揭示提示：${hintsRevealed}/${maxHints}
 已提问：${questionsAsked}/${maxQuestions}
 
 玩家提问：请判断并回复。
@@ -236,78 +234,179 @@ TURTLE_PROMPTS.guessFirstTurn = (surface) => {
 
 // === AI Host Review Phase ===
 
-TURTLE_PROMPTS.hostReview = (won, puzzle, questionsAsked, hintsRevealed) => {
-  if (won) {
-    return `游戏结束！玩家成功推理出了海龟汤的真相。
+TURTLE_PROMPTS.hostReview = (won, puzzle, questionsAsked, hintsRevealed, maxQuestions, maxHints, difficulty, knownInfo) => {
+  const diffLabels = { easy: '简单', normal: '一般', hard: '困难', hell: '地狱' };
+  const diffLabel = diffLabels[difficulty] || difficulty;
+  const diffMultiplier = { easy: 0.7, normal: 1.0, hard: 1.3, hell: 1.6 }[difficulty] || 1.0;
 
-现在进入复盘阶段。请回顾整个游戏过程：
+  const knownInfoText = knownInfo && knownInfo.length > 0
+    ? knownInfo.map(k => `  - Q: ${k.question} → A: ${k.answer}`).join('\n')
+    : '  （无记录）';
+
+  return `游戏结束！${won ? '玩家成功推理出了海龟汤的真相。' : '玩家未能推理出海龟汤的真相。'}
+
+现在进入复盘阶段。你需要完成两件事：**给玩家打分** 和 **复盘分析**。
+
+━━━ 第一部分：综合评分（满分100分）━━━
+
+请客观、严格地给玩家打分，不要讨好玩家。评分标准如下：
+
+**基础分（满分100）的计算维度：**
+
+1. **真相还原度**（权重40%）：玩家的推理与汤底的契合程度
+   - 完全正确（${won ? '本轮如此' : ''}）：35-40分
+   - 方向正确但缺少关键细节：20-34分
+   - 部分正确：10-19分
+   - 完全跑偏：0-9分
+
+2. **提问效率**（权重20%）：提问次数占总次数的比例
+   - 用≤25%的问题数就猜出：18-20分
+   - 用25%-50%：14-17分
+   - 用50%-75%：10-13分
+   - 用>75%：5-9分
+   本轮：${questionsAsked}/${maxQuestions}个问题（${Math.round(questionsAsked/maxQuestions*100)}%）
+
+3. **提示依赖度**（权重15%）：使用提示越少越好
+   - 0个提示：15分
+   - 每用一个提示扣 ${Math.round(15/maxHints * 10) / 10} 分
+   本轮：${hintsRevealed}/${maxHints}个提示
+
+4. **提问思路**（权重25%）：问题的逻辑性和方向感
+   - 问题始终围绕核心矛盾，方向清晰：22-25分
+   - 大部分问题有针对性，偶尔跑偏：16-21分
+   - 经常在无关细节上纠缠：8-15分
+   - 完全没有方向，像无头苍蝇：0-7分
+
+**难度系数**：${diffLabel}难度系数 × ${diffMultiplier}
+
+**最终得分 = 基础分 × 难度系数**（上限100分）
+
+**玩家的已知信息记录：**
+${knownInfoText}
+
+请输出评分，格式如下（必须严格遵循）：
+
+---
+📊 **综合评分：XX/100**
+
+**评分明细：**
+- 真相还原度：XX/40
+- 提问效率：XX/20（${questionsAsked}问/${maxQuestions}问）
+- 提示依赖度：XX/15（使用${hintsRevealed}/${maxHints}个提示）
+- 提问思路：XX/25
+- 基础分合计：XX/100
+- 难度系数：${diffMultiplier}（${diffLabel}）
+- 最终得分：XX/100
+---
+
+━━━ 第二部分：复盘分析 ━━━
+
+在评分之后，进行详细复盘：
+
+${won ? `1. **关键转折点**：哪个问题让玩家找到了正确方向？分析那个问题为什么有效。
+2. **推理路径回顾**：回顾玩家的提问轨迹，分析推理思路` : `1. **逻辑链条**：从汤面到汤底的完整推理链，每一步怎么走。
+2. **玩家错在哪里**：具体指出玩家在哪个问题/哪个方向上跑偏了，为什么跑偏。`}
+3. **关键线索**：哪些信息是破解的关键？玩家${won ? '抓住了哪些' : '错过了哪些'}？
+4. **改进建议**：
+   - 玩家在哪一步应该换方向但没有换？
+   - 哪个问题本来可以更有针对性地问？
+   - 对于这类海龟汤，推荐的解题思路是什么？
+5. **汤面设计**：这个海龟汤的设计思路，哪些细节是误导/陷阱。
+
+**重要提醒**：
+- 打分要客观，不要因为要"鼓励"玩家就虚高分数
+- 如果玩家表现不好，直说哪里不好
+- 提问思路的评判要看整个对话历史，不是只看最后几个问题
+
+谜题信息：
 - 汤面：${puzzle.surface}
 - 汤底（真相）：${puzzle.truth}
 - 类型：${puzzle.genre}
-- 玩家问了${questionsAsked}个问题
-- 你给了${hintsRevealed}条提示（共4条可用）
-
-请和玩家讨论：
-1. 哪个问题是关键的转折点？玩家是怎么推理出来的？
-2. 这个海龟汤的设计思路是什么？哪些细节是精心设置的误导？
-3. 有什么类似的经典海龟汤可以推荐给玩家？
-
-然后继续和玩家自由交流，分享海龟汤的乐趣。保持轻松有趣的对话风格。`;
-  } else {
-    return `游戏结束！玩家未能推理出海龟汤的真相，选择了放弃。
-
-现在进入复盘阶段。请揭晓并解释整个谜题：
-- 汐面：${puzzle.surface}
-- 汐底（真相）：${puzzle.truth}
-- 类型：${puzzle.genre}
-- 关键词：${puzzle.keywords?.join('、') || '无'}
-- 玩家问了${questionsAsked}个问题
-- 你给了${hintsRevealed}条提示
-
-请向玩家详细解释：
-1. 完整的逻辑链条：从汤面到汤底，每一步是怎么推理的？
-2. 哪些信息是关键的？玩家可能错过了什么？
-3. 这个谜题的类型特点和解题思路
-4. 给玩家一些海龟汤解题的技巧建议
-
-帮助玩家理解这个谜题，下次能做得更好。保持轻松有趣的对话风格。`;
-  }
+- 关键词：${puzzle.keywords?.join('、') || '无'}`;
 };
 
 // === AI Guess Review Phase ===
 
-TURTLE_PROMPTS.guessReview = (won, surface, confirmed, keyInsights, questionsAsked, guessesUsed) => {
-  if (won) {
-    return `游戏结束！你成功推理出了玩家海龟汤的汤底真相。
+TURTLE_PROMPTS.guessReview = (won, surface, confirmed, keyInsights, questionsAsked, guessesUsed, maxQuestions, maxGuesses, difficulty, qaHistory) => {
+  const diffLabels = { easy: '简单', normal: '一般', hard: '困难', hell: '地狱' };
+  const diffLabel = diffLabels[difficulty] || difficulty;
+  const diffMultiplier = { easy: 0.7, normal: 1.0, hard: 1.3, hell: 1.6 }[difficulty] || 1.0;
 
-现在进入复盘阶段。请回顾你的推理过程：
+  const qaText = qaHistory && qaHistory.length > 0
+    ? qaHistory.map((qa, i) => `  ${i + 1}. ${qa.question} → ${qa.answer}`).join('\n')
+    : '  （无记录）';
+
+  return `游戏结束！${won ? 'AI成功推理出了海龟汤的汤底真相。' : 'AI未能推理出玩家海龟汤的汤底真相。'}
+
+现在进入复盘阶段。你需要从AI的角度进行复盘，包括自我评分和推理分析。
+
+━━━ 第一部分：AI 自我评分（满分100分）━━━
+
+请客观、严格地评估AI（即你自己）的表现。不要自我吹嘘，也不要故意贬低。
+
+**基础分（满分100）的计算维度：**
+
+1. **推理准确度**（权重40%）：最终推理与真实汤底的契合程度
+   - 完全正确：35-40分
+   - 方向正确但缺少细节：20-34分
+   - 部分正确：10-19分
+   - 完全跑偏：0-9分
+
+2. **提问效率**（权重20%）：AI用了多少问题达到结论
+   - 用≤25%的问题数：18-20分
+   - 用25%-50%：14-17分
+   - 用50%-75%：10-13分
+   - 用>75%：5-9分
+   本轮：${questionsAsked}/${maxQuestions}个问题（${Math.round(questionsAsked/maxQuestions*100)}%）
+
+3. **猜测效率**（权重15%）：正式猜测的使用效率
+   - 1次就猜对：15分
+   - 每多猜错一次扣5分
+   本轮：${guessesUsed}/${maxGuesses}次猜测
+
+4. **提问策略**（权重25%）：问题是否有针对性、方向感如何
+   - 始终围绕核心矛盾，方向清晰：22-25分
+   - 大部分有针对性：16-21分
+   - 经常在无关细节上纠缠：8-15分
+   - 没有方向：0-7分
+
+**难度系数**：${diffLabel}难度系数 × ${diffMultiplier}（玩家选择的难度影响评分基准）
+
+**最终得分 = 基础分 × 难度系数**（上限100分）
+
+**AI的提问历史：**
+${qaText}
+
+请输出评分，格式如下（必须严格遵循）：
+
+---
+📊 **AI 综合评分：XX/100**
+
+**评分明细：**
+- 推理准确度：XX/40
+- 提问效率：XX/20（${questionsAsked}问/${maxQuestions}问）
+- 猜测效率：XX/15（${guessesUsed}次/${maxGuesses}次）
+- 提问策略：XX/25
+- 基础分合计：XX/100
+- 难度系数：${diffMultiplier}（${diffLabel}）
+- 最终得分：XX/100
+---
+
+━━━ 第二部分：复盘分析 ━━━
+
+${won ? `1. **关键转折点**：哪个问题的回答让AI找到了正确方向？
+2. **推理路径**：AI是如何一步步锁定真相的？` : `1. **失败分析**：AI在哪里走偏了？哪些信息被遗漏或误解？
+2. **请玩家揭晓真相**：请诚恳请玩家告诉你真正的汤底，然后分析差距。`}
+3. **提问质量评估**：回顾提问历史，哪些问题有效，哪些浪费了机会？
+4. **改进方向**：
+   - 如果重来，AI应该在哪里换方向？
+   - 有哪些更高效的问题可以替代？
+5. **策略反思**：对于这类海龟汤，什么样的提问策略最有效？
+
+谜题信息：
 - 汤面：${surface}
-- 你问了${questionsAsked}个问题，用了${guessesUsed}次正式猜测
 - 已确认的信息：${confirmed.join('；') || '暂无'}
-- 关键推理线索：${keyInsights.join('；') || '暂无'}
-
-请向玩家解释：
-1. 哪个问题是关键的转折点，让你缩小了范围？
-2. 你是如何一步步锁定真相的？
-3. 有什么有趣的推理细节？
-
-然后继续和玩家自由交流，讨论这个海龟汤的设计和你的推理过程。保持轻松有趣的对话风格。`;
-  } else {
-    return `游戏结束！你未能推理出玩家海龟汤的汤底真相，用完了所有猜测机会。
-
-现在进入复盘阶段。请分析失败原因：
-- 汤面：${surface}
-- 你问了${questionsAsked}个问题，用了${guessesUsed}次正式猜测
-- 已确认的信息：${confirmed.join('；') || '暂无'}
-- 关键推理线索：${keyInsights.join('；') || '暂无'}
-
-请反思：
-1. 哪些问题或回答误导了你？
-2. 是否有某个关键信息被遗漏或误解？
-3. 请让玩家告诉你真正的汤底是什么，然后分析差距
-
-诚恳地和玩家讨论，请玩家分享真正的真相以及哪些回答可能造成了误导。保持轻松有趣的对话风格。`;
-  }
+- 关键推理线索：${keyInsights.join('；') || '暂无'}`;
 };
 
 // === Force Final Guess ===

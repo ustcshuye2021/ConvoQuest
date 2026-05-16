@@ -199,19 +199,13 @@ const GAMES = {
     name: '海龟汤',
     modes: [
       { id: 'turtle-host', icon: '🍲', name: 'AI 出题', desc: 'AI 出一道海龟汤，你来提问推理真相', needDifficulty: true },
-      { id: 'turtle-guess', icon: '🤔', name: 'AI 来猜', desc: '你出汤面，AI 提问来推理汤底', needDifficulty: true,
-        difficulties: [
-          { id: 'easy', stars: '⭐', name: '简单', desc: '20问/3次猜测' },
-          { id: 'normal', stars: '⭐⭐', name: '一般', desc: '40问/4次猜测' },
-          { id: 'hard', stars: '⭐⭐⭐', name: '困难', desc: '60问/5次猜测' },
-          { id: 'hell', stars: '⭐⭐⭐⭐', name: '地狱', desc: '80问/6次猜测' }
-        ]
-      }
+      { id: 'turtle-guess', icon: '🤔', name: 'AI 来猜', desc: '你出汤面，AI 提问来推理汤底', needDifficulty: true }
     ],
     difficulties: [
-      { id: 'easy', stars: '⭐', name: '简单', desc: '逻辑链短，1-2步推理' },
-      { id: 'medium', stars: '⭐⭐', name: '中等', desc: '需要多角度思考' },
-      { id: 'hard', stars: '⭐⭐⭐', name: '困难', desc: '出人意料，打破思维定式' }
+      { id: 'easy', stars: '⭐', name: '简单', desc: '20问/3猜/1提示，逻辑链短' },
+      { id: 'normal', stars: '⭐⭐', name: '一般', desc: '40问/4猜/3提示，需多角度思考' },
+      { id: 'hard', stars: '⭐⭐⭐', name: '困难', desc: '60问/5猜/5提示，打破思维定式' },
+      { id: 'hell', stars: '⭐⭐⭐⭐', name: '地狱', desc: '80问/6猜/7提示，极致挑战' }
     ]
   }
 };

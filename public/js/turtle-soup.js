@@ -1,10 +1,10 @@
 /* Turtle Soup (海龟汤) Game Logic */
 
 const DIFFICULTY_CONFIG = {
-  easy:   { name: '简单', maxQuestions: 20, maxGuesses: 3 },
-  normal: { name: '一般', maxQuestions: 40, maxGuesses: 4 },
-  hard:   { name: '困难', maxQuestions: 60, maxGuesses: 5 },
-  hell:   { name: '地狱', maxQuestions: 80, maxGuesses: 6 }
+  easy:   { name: '简单', maxQuestions: 20, maxGuesses: 3, maxHints: 1 },
+  normal: { name: '一般', maxQuestions: 40, maxGuesses: 4, maxHints: 3 },
+  hard:   { name: '困难', maxQuestions: 60, maxGuesses: 5, maxHints: 5 },
+  hell:   { name: '地狱', maxQuestions: 80, maxGuesses: 6, maxHints: 7 }
 };
 
 /* === AI Hosts Mode (AI出题 我来猜) === */
@@ -18,7 +18,14 @@ const TurtleHostMode = {
     GameState.mode = 'turtle-host';
     GameState.difficulty = difficulty;
 
-    const diffLabels = { easy: '简单', medium: '中等', hard: '困难' };
+    const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
+    const t = GameState.turtle;
+    t.difficulty = difficulty;
+    t.maxQuestions = config.maxQuestions;
+    t.maxGuesses = config.maxGuesses;
+    t.maxHints = config.maxHints;
+
+    const diffLabels = { easy: '简单', normal: '一般', hard: '困难', hell: '地狱' };
     $('#turtle-host-badge').textContent = diffLabels[difficulty];
     $('#turtle-host-badge').className = `badge badge-${difficulty}`;
 
@@ -35,13 +42,19 @@ const TurtleHostMode = {
     updateTurtleHostStats();
     showScreen('screen-turtle-host');
 
+    // Update sidebar limit labels
+    const qLimitEl = document.getElementById('turtle-host-q-limit');
+    if (qLimitEl) qLimitEl.textContent = `/${config.maxQuestions}`;
+    const hLimitEl = document.getElementById('turtle-host-h-limit');
+    if (hLimitEl) hLimitEl.textContent = `/${config.maxHints}`;
+
     // Generate puzzle
     showLoading('turtle-host-loading');
     addMsg($('#turtle-host-chat'), '正在生成海龟汤题目...', 'system');
 
     try {
       const raw = await chatFull(
-        [{ role: 'user', content: TURTLE_PROMPTS.hostGenerate(difficulty) }],
+        [{ role: 'user', content: TURTLE_PROMPTS.hostGenerate(difficulty, config.maxHints) }],
         GameState.apiKey
       );
 
@@ -103,6 +116,14 @@ const TurtleHostMode = {
       t.questionsAsked++;
       updateTurtleHostStats();
       t.lastQuestion = trimmed;
+
+      // Check question limit - must guess or give up
+      if (t.questionsAsked >= t.maxQuestions) {
+        addMsg($('#turtle-host-chat'), `⚠️ 已达到${t.maxQuestions}个问题的上限！请点击「🔮猜真相」提交你的答案，或「放弃」揭晓真相。`, 'system');
+        $('#turtle-host-input-area').classList.add('hidden');
+        $('#turtle-host-guess-area').classList.remove('hidden');
+        return;
+      }
     }
 
     // Send to AI
@@ -114,7 +135,7 @@ const TurtleHostMode = {
     showLoading('turtle-host-loading');
     const turnMsg = TURTLE_PROMPTS.hostTurn(
       t.puzzle.surface, t.puzzle.truth,
-      t.hintsRevealed, t.questionsAsked, 30
+      t.hintsRevealed, t.questionsAsked, t.maxQuestions, t.maxHints
     );
     GameState.messages.push({ role: 'user', content: turnMsg + '\n\n玩家提问：' + trimmed });
 
@@ -221,8 +242,9 @@ const TurtleHostMode = {
 
   giveHint() {
     const t = GameState.turtle;
-    if (t.hintsRevealed >= 4) {
-      addMsg($('#turtle-host-chat'), '所有提示已用完！', 'system');
+    const maxHints = t.maxHints || 4;
+    if (t.hintsRevealed >= maxHints) {
+      addMsg($('#turtle-host-chat'), `所有提示已用完（${maxHints}次）！`, 'system');
       return;
     }
 
@@ -303,7 +325,8 @@ const TurtleHostMode = {
     $('#turtle-host-chat').scrollTop = $('#turtle-host-chat').scrollHeight;
 
     const reviewPrompt = TURTLE_PROMPTS.hostReview(
-      won, puzzle, t.questionsAsked, t.hintsRevealed
+      won, puzzle, t.questionsAsked, t.hintsRevealed,
+      t.maxQuestions, t.maxHints, t.difficulty, t.knownInfo
     );
 
     showLoading('turtle-host-loading');
@@ -385,8 +408,8 @@ const TurtleHostMode = {
     }
 
     $('#result-stats').innerHTML = `
-      <p>❓ 提问次数：${t.questionsAsked}</p>
-      <p>💡 使用提示：${t.hintsRevealed}/4</p>
+      <p>❓ 提问次数：${t.questionsAsked}/${t.maxQuestions}</p>
+      <p>💡 使用提示：${t.hintsRevealed}/${t.maxHints}</p>
       <p>🔮 猜测次数：${t.guessesUsed}</p>
     `;
     $('#result-rating').textContent = rating;
@@ -410,6 +433,7 @@ const TurtleGuessMode = {
     t.difficulty = difficulty;
     t.maxQuestions = config.maxQuestions;
     t.maxGuesses = config.maxGuesses;
+    t.maxHints = config.maxHints;
 
     const diffLabels = { easy: '简单', normal: '一般', hard: '困难', hell: '地狱' };
     const badge = $('#turtle-guess-badge');
@@ -881,7 +905,8 @@ const TurtleGuessMode = {
 
     const reviewPrompt = TURTLE_PROMPTS.guessReview(
       won, t.surface, t.confirmedFacts,
-      t.keyInsights, t.questionsAsked, t.guessesUsed
+      t.keyInsights, t.questionsAsked, t.guessesUsed,
+      t.maxQuestions, t.maxGuesses, t.difficulty, t.qaHistory
     );
 
     showLoading('turtle-guess-loading');
