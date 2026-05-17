@@ -27,7 +27,7 @@ const AIGuessMode = {
     $('#guess-reroll-area').classList.add('hidden');
     // Show hint prompt if applicable (doesn't block answer buttons)
     const g = GameState.guess;
-    if (g.questionsAsked >= 15 && !g.playerHintUsed) {
+    if (g.questionsAsked >= 14 && !g.playerHintUsed) {
       $('#guess-hint-area').classList.remove('hidden');
     } else {
       $('#guess-hint-area').classList.add('hidden');
@@ -138,8 +138,10 @@ const AIGuessMode = {
     g.lastActionWasGuess = false;
     updateGuessStats();
 
-    if (g.questionsAsked >= 15 && !g.playerHintUsed) {
-      addMsg($('#guess-chat-area'), '💡 已到第15问，你可以给 AI 一条提示帮助它推理。', 'system');
+    if (g.questionsAsked >= 14 && !g.playerHintUsed) {
+      addMsg($('#guess-chat-area'), '💡 即将进入第15问，你可以给 AI 一条提示帮助它推理。', 'system');
+      this._showHintPrompt();
+      return;
     }
 
     await this._continueAfterAnswer(answer);
@@ -218,8 +220,10 @@ const AIGuessMode = {
 
     addMsg($('#guess-chat-area'), '💡 提示：' + hint, 'user');
 
+    const lastQa = g.qaHistory[g.qaHistory.length - 1];
+    const answerText = lastQa ? lastQa.answer : '继续';
     const prompt = PROMPTS.aiGuessTurn(
-      `[玩家给了你一条提示]：${hint}\n请根据提示调整推理并继续提问。`,
+      `用户回答：${answerText}\n\n[玩家给了你一条提示]：${hint}\n请根据提示调整推理并继续提问。`,
       g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,

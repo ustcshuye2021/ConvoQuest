@@ -544,8 +544,8 @@ const TurtleGuessMode = {
       return;
     }
 
-    // Check hint prompt (every 15 questions)
-    if (t.questionsAsked > 0 && t.questionsAsked % 15 === 0) {
+    // Check hint prompt (before every 15th question)
+    if (t.questionsAsked > 0 && (t.questionsAsked + 1) % 15 === 0 && (t.questionsAsked + 1) <= t.maxQuestions) {
       updateTurtleGuessStats();
       t._lastAnswer = answer;
       this.showHintPrompt();
