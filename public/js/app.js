@@ -312,15 +312,18 @@ function showTwentyQModes(categoryId) {
     c.style.pointerEvents = 'auto';
   });
 
-  // Build difficulty buttons for this category
+  // Build difficulty buttons for this category (initially for host mode)
   const diffs = category.difficulties;
-  const diffHtml = Object.entries(diffs).map(([id, d]) => `
+  const diffHtml = Object.entries(diffs).map(([id, d]) => {
+    const starCount = ['easy','medium','hard','hell'].indexOf(id) + 1;
+    return `
     <button class="btn-difficulty" data-diff-id="${id}" data-category="${categoryId}">
-      <span class="stars">${id === 'easy' ? '⭐' : id === 'medium' ? '⭐⭐' : '⭐⭐⭐'}</span>
+      <span class="stars">${'⭐'.repeat(starCount)}</span>
       <span class="diff-name">${d.name}</span>
       <span class="diff-desc">${d.desc}</span>
     </button>
-  `).join('');
+  `;
+  }).join('');
   $('#hall-difficulty-buttons').innerHTML = diffHtml;
 
   // Bind mode card clicks
@@ -328,21 +331,55 @@ function showTwentyQModes(categoryId) {
     card.addEventListener('click', () => {
       const modeId = card.dataset.modeId;
       GameState._pendingMode = modeId;
+
+      // Rebuild difficulty buttons with mode-specific descriptions
+      if (modeId === 'ai-guess') {
+        const guessDiffHtml = Object.entries(GUESS_DIFFICULTY_CONFIG).map(([id, d]) => {
+          const starCount = ['easy','medium','hard','hell'].indexOf(id) + 1;
+          return `
+          <button class="btn-difficulty" data-diff-id="${id}" data-category="${categoryId}">
+            <span class="stars">${'⭐'.repeat(starCount)}</span>
+            <span class="diff-name">${d.name}</span>
+            <span class="diff-desc">${category.difficulties[id]?.desc || d.name}，${d.maxQuestions}问/${d.maxGuesses}猜${d.maxHints > 0 ? `/${d.maxHints}提示` : ''}</span>
+          </button>
+        `;
+        }).join('');
+        $('#hall-difficulty-buttons').innerHTML = guessDiffHtml;
+        $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const diff = btn.dataset.diffId;
+            const categoryId = btn.dataset.category;
+            launchTwentyQ(categoryId, GameState._pendingMode, diff);
+          });
+        });
+      } else {
+        // Rebuild for host mode
+        const hostDiffHtml = Object.entries(diffs).map(([id, d]) => {
+          const starCount = ['easy','medium','hard','hell'].indexOf(id) + 1;
+          return `
+          <button class="btn-difficulty" data-diff-id="${id}" data-category="${categoryId}">
+            <span class="stars">${'⭐'.repeat(starCount)}</span>
+            <span class="diff-name">${d.name}</span>
+            <span class="diff-desc">${d.desc}</span>
+          </button>
+        `;
+        }).join('');
+        $('#hall-difficulty-buttons').innerHTML = hostDiffHtml;
+        $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const diff = btn.dataset.diffId;
+            const categoryId = btn.dataset.category;
+            launchTwentyQ(categoryId, GameState._pendingMode, diff);
+          });
+        });
+      }
+
       // Show difficulty, dim unselected cards
       $('#hall-difficulty').classList.remove('hidden');
       $$('#hall-mode-cards .mode-card').forEach(c => {
         c.style.opacity = c === card ? '1' : '0.4';
         c.style.pointerEvents = 'none';
       });
-    });
-  });
-
-  // Bind difficulty clicks
-  $$('#hall-difficulty-buttons .btn-difficulty').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const diff = btn.dataset.diffId;
-      const categoryId = btn.dataset.category;
-      launchTwentyQ(categoryId, GameState._pendingMode, diff);
     });
   });
 }
@@ -378,7 +415,7 @@ function launchGame(gameId, modeId, difficulty) {
 function launchTwentyQ(categoryId, modeId, difficulty) {
   GameState.category = categoryId;
   if (modeId === 'ai-host') AIHostMode.start(difficulty, categoryId);
-  else if (modeId === 'ai-guess') AIGuessMode.start(categoryId);
+  else if (modeId === 'ai-guess') AIGuessMode.start(categoryId, difficulty);
 }
 
 function backToGameList() {
@@ -851,12 +888,13 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#btn-play-again').addEventListener('click', () => {
     const prevMode = GameState.mode;
     const prevCategory = GameState.category;
-    const prevDifficulty = GameState.turtle.difficulty;
+    const prevGuessDifficulty = GameState.guess.difficulty;
+    const prevTurtleDifficulty = GameState.turtle.difficulty;
     GameState.reset();
     if (prevMode === 'ai-guess' && prevCategory) {
-      AIGuessMode.start(prevCategory);
+      AIGuessMode.start(prevCategory, prevGuessDifficulty || 'medium');
     } else if (prevMode === 'turtle-guess') {
-      TurtleGuessMode.start(prevDifficulty || 'normal');
+      TurtleGuessMode.start(prevTurtleDifficulty || 'normal');
     } else {
       resetToGameHall();
     }

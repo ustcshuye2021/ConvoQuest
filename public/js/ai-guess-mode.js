@@ -1,5 +1,12 @@
 /* AI Guess Mode Logic */
 
+const GUESS_DIFFICULTY_CONFIG = {
+  easy:   { name: '简单', maxQuestions: 15, maxGuesses: 3, maxHints: 0, hintThresholds: [] },
+  medium: { name: '中等', maxQuestions: 20, maxGuesses: 4, maxHints: 1, hintThresholds: [14] },
+  hard:   { name: '困难', maxQuestions: 30, maxGuesses: 5, maxHints: 2, hintThresholds: [16, 24] },
+  hell:   { name: '地狱', maxQuestions: 40, maxGuesses: 6, maxHints: 3, hintThresholds: [18, 26, 34] }
+};
+
 const AIGuessMode = {
   _thinking: false,
   _lastPrompt: null,
@@ -25,9 +32,12 @@ const AIGuessMode = {
     $('#guess-response-area').classList.remove('hidden');
     $('#guess-confirm-area').classList.add('hidden');
     $('#guess-reroll-area').classList.add('hidden');
-    // Show hint prompt if applicable (doesn't block answer buttons)
     const g = GameState.guess;
-    if (g.questionsAsked >= 14 && !g.playerHintUsed) {
+    const config = GUESS_DIFFICULTY_CONFIG[g.difficulty || 'medium'];
+    const nextHintIdx = g.playerHintsUsed;
+    const showHint = config.maxHints > 0 && nextHintIdx < config.hintThresholds.length &&
+                     g.questionsAsked >= config.hintThresholds[nextHintIdx];
+    if (showHint) {
       $('#guess-hint-area').classList.remove('hidden');
     } else {
       $('#guess-hint-area').classList.add('hidden');
@@ -55,15 +65,22 @@ const AIGuessMode = {
 
   // --- Game Flow ---
 
-  async start(categoryId) {
+  async start(categoryId, difficulty) {
     const cat = CATEGORIES[categoryId || 'history'];
+    const config = GUESS_DIFFICULTY_CONFIG[difficulty || 'medium'];
     GameState.mode = 'ai-guess';
     GameState.reset();
     GameState.mode = 'ai-guess';
     GameState.category = categoryId;
+    GameState.difficulty = difficulty;
+
+    GameState.guess.difficulty = difficulty;
+    GameState.guess.maxQuestions = config.maxQuestions;
+    GameState.guess.maxGuesses = config.maxGuesses;
+    GameState.guess.maxHints = config.maxHints;
 
     // Update sidebar title
-    $('.guess-sidebar .sidebar-title').innerHTML = `🤔 AI 来猜 · ${cat.name} <button class="btn-settings btn-open-settings" title="设置">⚙️</button>`;
+    $('.guess-sidebar .sidebar-title').innerHTML = `🤔 AI 来猜 · ${cat.name} <span class="badge">${config.name}</span> <button class="btn-settings btn-open-settings" title="设置">⚙️</button>`;
 
     // Update answer buttons for category-specific unknown answer
     const responseArea = $('#guess-response-area');
@@ -113,7 +130,7 @@ const AIGuessMode = {
     addMsg($('#guess-chat-area'), '准备好了！请开始提问。', 'user');
 
     GameState.messages = [
-      { role: 'system', content: PROMPTS.aiGuessSystem(categoryId) }
+      { role: 'system', content: PROMPTS.aiGuessSystem(categoryId, config.maxQuestions, config.maxGuesses) }
     ];
 
     await this.askNext(`用户已准备好，心中想好了一个${cat.targetName}（${cat.desc}）。请开始第一个问题（编号1）。随机选择提问顺序和问法，问题前加序号「1. 」。`);
@@ -138,8 +155,11 @@ const AIGuessMode = {
     g.lastActionWasGuess = false;
     updateGuessStats();
 
-    if (g.questionsAsked >= 14 && !g.playerHintUsed) {
-      addMsg($('#guess-chat-area'), '💡 即将进入第15问，你可以给 AI 一条提示帮助它推理。', 'system');
+    const config = GUESS_DIFFICULTY_CONFIG[g.difficulty || 'medium'];
+    const nextHintIdx = g.playerHintsUsed;
+    if (config.maxHints > 0 && nextHintIdx < config.hintThresholds.length &&
+        g.questionsAsked >= config.hintThresholds[nextHintIdx]) {
+      addMsg($('#guess-chat-area'), `💡 提示机会（${nextHintIdx + 1}/${config.maxHints}），你可以给 AI 一条提示帮助推理。`, 'system');
       this._showHintPrompt();
       return;
     }
@@ -154,7 +174,8 @@ const AIGuessMode = {
       answer, g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, null, categoryId
+      g.lastActionWasGuess, null, categoryId,
+      g.maxQuestions, g.maxGuesses
     );
     await this.askNext(prompt);
   },
@@ -177,7 +198,8 @@ const AIGuessMode = {
       g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, null, categoryId
+      g.lastActionWasGuess, null, categoryId,
+      g.maxQuestions, g.maxGuesses
     );
 
     await this.askNext(prompt);
@@ -186,7 +208,8 @@ const AIGuessMode = {
   async onForceGuess() {
     const g = GameState.guess;
     if (g.gameOver) return;
-    if (g.guessesUsed >= 3) {
+    const config = GUESS_DIFFICULTY_CONFIG[g.difficulty || 'medium'];
+    if (g.guessesUsed >= config.maxGuesses) {
       addMsg($('#guess-chat-area'), 'AI 已经用完了所有猜测次数。', 'system');
       return;
     }
@@ -201,7 +224,7 @@ const AIGuessMode = {
 画像：${Object.entries(g.portrait).map(([k, v]) => `${k}: ${v}`).join('；') || '暂无'}
 
 请发起正式猜测，格式：
-🎯 正式猜测 #${g.guessesUsed + 1}/3: 我认为这是【名称】。我猜对了吗？`;
+🎯 正式猜测 #${g.guessesUsed + 1}/${config.maxGuesses}: 我认为这是【名称】。我猜对了吗？`;
 
     await this.askNext(prompt);
   },
@@ -215,7 +238,8 @@ const AIGuessMode = {
     if (!hint) return;
 
     $('#guess-hint-input').value = '';
-    g.playerHintUsed = true;
+    g.playerHintsUsed++;
+    g.playerHints.push(hint);
     $('#guess-hint-area').classList.add('hidden');
 
     addMsg($('#guess-chat-area'), '💡 提示：' + hint, 'user');
@@ -227,7 +251,8 @@ const AIGuessMode = {
       g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, hint, categoryId
+      g.lastActionWasGuess, hint, categoryId,
+      g.maxQuestions, g.maxGuesses
     );
 
     await this.askNext(prompt);
@@ -235,7 +260,7 @@ const AIGuessMode = {
 
   async onPlayerHintRefuse() {
     const g = GameState.guess;
-    g.playerHintUsed = true;
+    g.playerHintsUsed++;
     $('#guess-hint-area').classList.add('hidden');
 
     addMsg($('#guess-chat-area'), '拒绝了给提示。', 'system');
@@ -297,7 +322,8 @@ const AIGuessMode = {
       correctionPrompt, g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      g.lastActionWasGuess, null, categoryId
+      g.lastActionWasGuess, null, categoryId,
+      g.maxQuestions, g.maxGuesses
     );
 
     await this.askNext(prompt);
@@ -439,6 +465,7 @@ const AIGuessMode = {
   async onGuessWrong() {
     const g = GameState.guess;
     const categoryId = GameState.category;
+    const config = GUESS_DIFFICULTY_CONFIG[g.difficulty || 'medium'];
     g.guessesUsed++;
     g.lastActionWasGuess = true;
     updateGuessStats();
@@ -446,7 +473,7 @@ const AIGuessMode = {
     $('#guess-confirm-area').classList.add('hidden');
     addMsg($('#guess-chat-area'), '猜错了！', 'user');
 
-    if (g.guessesUsed >= 3) {
+    if (g.guessesUsed >= config.maxGuesses) {
       g.gameOver = true;
       addMsg($('#guess-chat-area'), 'AI 用完了所有猜测次数，进入复盘阶段...', 'system');
       await this.startReview(false);
@@ -458,7 +485,8 @@ const AIGuessMode = {
       g.confirmedFacts,
       g.questionsAsked, g.questionsHistory,
       g.guessesUsed, g.confidence,
-      true, null, categoryId
+      true, null, categoryId,
+      g.maxQuestions, g.maxGuesses
     );
     await this.askNext(prompt);
   },
@@ -542,18 +570,21 @@ const AIGuessMode = {
     const g = GameState.guess;
     const won = g.won;
     const cat = CATEGORIES[GameState.category || 'history'];
+    const config = GUESS_DIFFICULTY_CONFIG[g.difficulty || 'medium'];
+    const ratio = g.maxQuestions > 0 ? g.questionsAsked / g.maxQuestions : 0;
 
     $('#result-title').textContent = won ? '🤖 AI 猜对了！' : '😅 AI 认输了！';
     $('#result-name').textContent = `你心中想的${cat.targetName}`;
     $('#result-details').innerHTML = `
-      <p>📊 总提问：${g.questionsAsked} 个</p>
-      <p>🎯 正式猜测：${g.guessesUsed} 次</p>
+      <p>📊 总提问：${g.questionsAsked} / ${config.maxQuestions}</p>
+      <p>🎯 正式猜测：${g.guessesUsed} / ${config.maxGuesses}</p>
+      ${config.maxHints > 0 ? `<p>💡 玩家提示：${g.playerHints.filter(h => h).length} / ${config.maxHints}</p>` : ''}
     `;
 
     let rating;
     if (won) {
-      if (g.questionsAsked <= 5) rating = '🤖 AI 太强了！';
-      else if (g.questionsAsked <= 10) rating = '🤖 AI 表现不错';
+      if (ratio <= 0.25) rating = '🤖 AI 太强了！';
+      else if (ratio <= 0.5) rating = '🤖 AI 表现不错';
       else rating = '🤖 AI 费了点力气';
     } else {
       rating = '🤔 你赢了！';

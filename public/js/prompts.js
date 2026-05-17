@@ -159,16 +159,19 @@ portrait规则（仅提问时填写，猜测时为{}）：
 
 // === AI Guess Mode ===
 
-PROMPTS.aiGuessSystem = (categoryId) => {
+PROMPTS.aiGuessSystem = (categoryId, maxQuestions, maxGuesses) => {
   const cat = _cat(categoryId);
   const portraitCats = cat.portraitCategories.join('、');
+  const q1 = Math.floor(maxQuestions * 0.25);
+  const q2 = Math.floor(maxQuestions * 0.6);
+  const q3 = Math.floor(maxQuestions * 0.85);
 
   return `你是一个"${cat.name}"猜谜游戏的猜测者。用户心中想好了一个${cat.desc}，你需要通过提问来猜出此${cat.targetName}。
 
 ## 核心规则
 - 通过是/否问题逐步缩小范围
-- 最多问20个问题
-- 最多正式猜测3次
+- 最多问${maxQuestions}个问题
+- 最多正式猜测${maxGuesses}次
 - 不允许连续猜测——猜错后必须至少再问一个问题才能再次猜测
 - 当剩余问题数 ≤ 剩余猜测次数时，必须发起正式猜测（否则猜测次数会白白浪费）
 - 使用中文交流，除非涉及没有中文名的特殊情况
@@ -187,20 +190,20 @@ PROMPTS.aiGuessSystem = (categoryId) => {
 
 ## 提问节奏
 
-### 第1-5问：大范围二分
+### 第1-${q1}问：大范围二分
 每个问题对应一个将所有${cat.name}对半切分的维度。根据"${cat.name}"类别，覆盖最基本的大维度。
 
-### 第6-12问：中范围二分
+### 第${q1 + 1}-${q2}问：中范围二分
 在已确认的大类内继续二分，逐步缩小范围。
 
-### 第13-17问：细范围二分
+### 第${q2 + 1}-${q3}问：细范围二分
 用具体但仍有区分度的特征继续分割。
 
 ### 收束阶段：必须猜测
 当剩余问题数 ≤ 剩余猜测次数时，必须发起正式猜测，不能只提问不猜。
 
 ## 正式猜测格式
-🎯 正式猜测 #N/3: 我认为这是【名称】。我猜对了吗？
+🎯 正式猜测 #N/${maxGuesses}: 我认为这是【名称】。我猜对了吗？
 
 ## 输出格式
 每次回复的第一行用JSON标记你的推理状态（这行不显示给用户）：
@@ -229,9 +232,11 @@ portrait说明：对已知信息分类整理。类别使用以下固定名称：
 - 严禁推断未确认的信息`;
 };
 
-PROMPTS.aiGuessTurn = (answer, confirmedFacts, questionsAsked, questionsHistory, guessesUsed, confidence, lastActionWasGuess, playerHint, categoryId) => {
+PROMPTS.aiGuessTurn = (answer, confirmedFacts, questionsAsked, questionsHistory, guessesUsed, confidence, lastActionWasGuess, playerHint, categoryId, maxQuestions, maxGuesses) => {
   const cat = _cat(categoryId);
-  const mustGuess = (20 - questionsAsked) <= (3 - guessesUsed);
+  maxQuestions = maxQuestions || 20;
+  maxGuesses = maxGuesses || 4;
+  const mustGuess = (maxQuestions - questionsAsked) <= (maxGuesses - guessesUsed);
   const noConsecutiveGuess = lastActionWasGuess;
   let constraint = '';
   if (noConsecutiveGuess && mustGuess) {
@@ -239,7 +244,7 @@ PROMPTS.aiGuessTurn = (answer, confirmedFacts, questionsAsked, questionsHistory,
   } else if (noConsecutiveGuess) {
     constraint = '\n\n⚠️ 约束：你上次刚猜错过，这次必须提问，不能连续猜测。';
   } else if (mustGuess) {
-    constraint = `\n\n⚠️ 约束：剩余问题${20 - questionsAsked}个，剩余猜测${3 - guessesUsed}次。这次必须发起正式猜测，否则猜测次数会白白浪费！`;
+    constraint = `\n\n⚠️ 约束：剩余问题${maxQuestions - questionsAsked}个，剩余猜测${maxGuesses - guessesUsed}次。这次必须发起正式猜测，否则猜测次数会白白浪费！`;
   }
 
   let hintSection = '';
@@ -249,9 +254,9 @@ PROMPTS.aiGuessTurn = (answer, confirmedFacts, questionsAsked, questionsHistory,
 
   return `[推理状态]
 已知信息（最小并集）：${confirmedFacts.join('；') || '暂无'}
-已提问：${questionsAsked}/20
+已提问：${questionsAsked}/${maxQuestions}
 下一个问题编号：${questionsAsked + 1}
-已猜测：${guessesUsed}/3
+已猜测：${guessesUsed}/${maxGuesses}
 信心：${confidence}%
 类别：${cat.name}
 

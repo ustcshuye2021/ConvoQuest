@@ -12,7 +12,8 @@ const AIHostMode = {
     const thresholds = {
       easy:   [100, 92, 82, 70, 58, 42, 0],
       medium: [100, 88, 76, 62, 48, 32, 0],
-      hard:   [100, 84, 68, 52, 38, 22, 0]
+      hard:   [100, 84, 68, 52, 38, 22, 0],
+      hell:   [100, 80, 64, 48, 34, 18, 0]
     };
     const wonTitles = cat.titles.won || ['🏆 大师', '⭐ 达人', '👍 爱好者', '🌱 入门'];
     const lostTitle = cat.titles.lost?.[0] || '🤔 下次再挑战';
@@ -41,7 +42,7 @@ const AIHostMode = {
 
     // Set difficulty badge
     const badge = $('#host-difficulty-badge');
-    const diffLabels = { easy: '简单', medium: '中等', hard: '困难' };
+    const diffLabels = { easy: '简单', medium: '中等', hard: '困难', hell: '地狱' };
     badge.textContent = `${diffLabels[difficulty]}`;
     badge.className = `badge badge-${difficulty}`;
 

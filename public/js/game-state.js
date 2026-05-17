@@ -43,7 +43,12 @@ const GameState = {
     guessesUsed: 0,
     gameOver: false,
     won: false,
-    playerHintUsed: false,
+    difficulty: null,
+    maxQuestions: 20,
+    maxGuesses: 4,
+    maxHints: 1,
+    playerHintsUsed: 0,
+    playerHints: [],
     lastActionWasGuess: false,
     qaHistory: []
   },
@@ -87,7 +92,9 @@ const GameState = {
       confirmedFacts: [], topCandidates: [], portrait: {},
       confidence: 0, questionsAsked: 0, questionsHistory: [],
       guessesUsed: 0, gameOver: false, won: false,
-      playerHintUsed: false, lastActionWasGuess: false, qaHistory: []
+      difficulty: null, maxQuestions: 20, maxGuesses: 4, maxHints: 1,
+      playerHintsUsed: 0, playerHints: [],
+      lastActionWasGuess: false, qaHistory: []
     };
     this.turtle = {
       puzzle: null, surface: '', difficulty: null,
@@ -112,8 +119,8 @@ const GameState = {
   },
 
   getBlindGuesses() {
-    // easy=1, medium=3, hard=5
-    const map = { easy: 1, medium: 3, hard: 5 };
+    // easy=1, medium=3, hard=5, hell=5
+    const map = { easy: 1, medium: 3, hard: 5, hell: 5 };
     return map[this.difficulty] || 1;
   }
 };

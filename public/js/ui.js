@@ -129,8 +129,11 @@ function addAnswerBadge(container, answer, categoryId) {
 
 function updateGuessStats() {
   const g = GameState.guess;
+  const config = GUESS_DIFFICULTY_CONFIG[g.difficulty || 'medium'];
   $('#guess-questions-count').textContent = `${g.questionsAsked}`;
-  $('#guess-guesses-left').textContent = `${3 - g.guessesUsed}`;
+  const qLimit = document.getElementById('guess-q-limit');
+  if (qLimit) qLimit.textContent = `/${config.maxQuestions}`;
+  $('#guess-guesses-left').textContent = `${config.maxGuesses - g.guessesUsed}`;
   $('#guess-confidence').textContent = `${g.confidence}`;
   const fill = document.getElementById('confidence-fill');
   if (fill) fill.style.width = `${g.confidence}%`;
