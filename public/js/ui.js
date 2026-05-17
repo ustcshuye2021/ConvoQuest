@@ -256,7 +256,13 @@ function stripJsonMetadata(text) {
         result = result.substring(0, braceIdx) + result.substring(end + 1);
         continue;
       }
-    } catch {}
+    } catch {
+      // Malformed JSON — still strip if it looks like game metadata
+      if (/"confidence"\s*:|"confirmed_facts"\s*:|"candidates"\s*:|"action"\s*:|"key_insights"\s*:|"portrait"\s*:|"question_number"\s*:/.test(candidate)) {
+        result = result.substring(0, braceIdx) + result.substring(end + 1);
+        continue;
+      }
+    }
     // Not game metadata JSON - skip past this brace
     break;
   }

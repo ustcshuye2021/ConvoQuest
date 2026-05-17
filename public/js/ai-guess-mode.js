@@ -405,7 +405,10 @@ const AIGuessMode = {
         if (json.confirmed_facts) GameState.guess.confirmedFacts = json.confirmed_facts;
         if (json.candidates) GameState.guess.topCandidates = json.candidates;
         if (json.portrait && typeof json.portrait === 'object') GameState.guess.portrait = json.portrait;
-      } catch {}
+      } catch {
+        const confidenceMatch = firstLine.match(/"confidence"\s*:\s*(\d+)/);
+        if (confidenceMatch) GameState.guess.confidence = parseInt(confidenceMatch[1]);
+      }
     }
 
     const displayText = text.substring(text.indexOf('\n') + 1).trim();
